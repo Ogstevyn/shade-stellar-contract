@@ -16,6 +16,7 @@ pub enum DataKey {
     Invoice(u64),
     InvoiceCount,
     ReentrancyStatus,
+    Role(Address, Role),
 }
 
 #[contracttype]
@@ -56,4 +57,12 @@ pub enum InvoiceStatus {
     Paid,
     Cancelled,
     Refunded,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Role {
+    Admin,
+    Manager,
+    Operator,
 }

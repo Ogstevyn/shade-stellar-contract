@@ -1,4 +1,4 @@
-use crate::types::{Invoice, Merchant};
+use crate::types::{Invoice, Merchant, Role};
 use soroban_sdk::{contracttrait, Address, Env, String};
 
 #[contracttrait]
@@ -19,4 +19,7 @@ pub trait ShadeTrait {
         token: Address,
     ) -> u64;
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice;
+    fn grant_role(env: Env, admin: Address, user: Address, role: Role);
+    fn revoke_role(env: Env, admin: Address, user: Address, role: Role);
+    fn has_role(env: Env, user: Address, role: Role) -> bool;
 }

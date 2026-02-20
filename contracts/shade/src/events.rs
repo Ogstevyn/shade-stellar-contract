@@ -74,3 +74,45 @@ pub fn publish_invoice_created_event(
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct RoleGrantedEvent {
+    pub user: Address,
+    pub role: crate::types::Role,
+    pub timestamp: u64,
+}
+
+pub fn publish_role_granted_event(
+    env: &Env,
+    user: Address,
+    role: crate::types::Role,
+    timestamp: u64,
+) {
+    RoleGrantedEvent {
+        user,
+        role,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct RoleRevokedEvent {
+    pub user: Address,
+    pub role: crate::types::Role,
+    pub timestamp: u64,
+}
+
+pub fn publish_role_revoked_event(
+    env: &Env,
+    user: Address,
+    role: crate::types::Role,
+    timestamp: u64,
+) {
+    RoleRevokedEvent {
+        user,
+        role,
+        timestamp,
+    }
+    .publish(env);
+}
