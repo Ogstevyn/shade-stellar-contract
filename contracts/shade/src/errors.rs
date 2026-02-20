@@ -8,4 +8,6 @@ pub enum ContractError {
     AlreadyInitialized = 2,
     NotInitialized = 3,
     Reentrancy = 4,
+    MerchantAlreadyRegistered = 5,
+    MerchantNotFound = 6,
 }

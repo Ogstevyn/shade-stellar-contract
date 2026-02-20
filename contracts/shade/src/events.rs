@@ -29,3 +29,24 @@ pub struct TokenRemovedEvent {
 pub fn publish_token_removed_event(env: &Env, token: Address, timestamp: u64) {
     TokenRemovedEvent { token, timestamp }.publish(env);
 }
+
+#[contractevent]
+pub struct MerchantRegisteredEvent {
+    pub merchant: Address,
+    pub merchant_id: u64,
+    pub timestamp: u64,
+}
+
+pub fn publish_merchant_registered_event(
+    env: &Env,
+    merchant: Address,
+    merchant_id: u64,
+    timestamp: u64,
+) {
+    MerchantRegisteredEvent {
+        merchant,
+        merchant_id,
+        timestamp,
+    }
+    .publish(env);
+}

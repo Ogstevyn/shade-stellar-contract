@@ -1,8 +1,10 @@
-use crate::components::{admin as admin_component, core as core_component};
+use crate::components::{
+    admin as admin_component, core as core_component, merchant as merchant_component,
+};
 use crate::errors::ContractError;
 use crate::events;
 use crate::interface::ShadeTrait;
-use crate::types::{ContractInfo, DataKey};
+use crate::types::{ContractInfo, DataKey, Merchant};
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
 
 #[contract]
@@ -38,5 +40,17 @@ impl ShadeTrait for Shade {
 
     fn is_accepted_token(env: Env, token: Address) -> bool {
         admin_component::is_accepted_token(&env, &token)
+    }
+
+    fn register_merchant(env: Env, merchant: Address) {
+        merchant_component::register_merchant(&env, &merchant);
+    }
+
+    fn get_merchant(env: Env, merchant_id: u64) -> Merchant {
+        merchant_component::get_merchant(&env, merchant_id)
+    }
+
+    fn is_merchant(env: Env, merchant: Address) -> bool {
+        merchant_component::is_merchant(&env, &merchant)
     }
 }
