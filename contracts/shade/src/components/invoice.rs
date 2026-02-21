@@ -82,7 +82,11 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
     let mut invoices: Vec<Invoice> = Vec::new(env);
 
     for i in 1..=invoice_count {
-        if let Some(invoice) = env.storage().persistent().get::<_, Invoice>(&DataKey::Invoice(i)) {
+        if let Some(invoice) = env
+            .storage()
+            .persistent()
+            .get::<_, Invoice>(&DataKey::Invoice(i))
+        {
             let mut matches = true;
 
             if let Some(status) = filter.status {
@@ -92,7 +96,11 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
             }
 
             if let Some(merchant) = &filter.merchant {
-                if let Some(merchant_id) = env.storage().persistent().get::<_, u64>(&DataKey::MerchantId(merchant.clone())) {
+                if let Some(merchant_id) = env
+                    .storage()
+                    .persistent()
+                    .get::<_, u64>(&DataKey::MerchantId(merchant.clone()))
+                {
                     if invoice.merchant_id != merchant_id {
                         matches = false;
                     }

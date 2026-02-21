@@ -85,7 +85,11 @@ pub fn get_merchants(env: &Env, filter: MerchantFilter) -> Vec<Merchant> {
     let mut merchants: Vec<Merchant> = Vec::new(env);
 
     for i in 1..=merchant_count {
-        if let Some(merchant) = env.storage().persistent().get::<_, Merchant>(&DataKey::Merchant(i)) {
+        if let Some(merchant) = env
+            .storage()
+            .persistent()
+            .get::<_, Merchant>(&DataKey::Merchant(i))
+        {
             let mut matches = true;
 
             if let Some(active) = filter.is_active {
