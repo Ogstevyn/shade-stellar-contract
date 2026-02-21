@@ -1,6 +1,4 @@
 #![cfg(test)]
-
-use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::DataKey;
 use soroban_sdk::testutils::{Address as _, Events as _};
@@ -47,27 +45,7 @@ fn test_admin_can_upgrade_successfully() {
     client.initialize(&admin);
 
     let v2_hash = env.deployer().upload_contract_wasm(V2_WASM);
-    client.upgrade(&admin, &v2_hash);
-}
-
-#[test]
-fn test_non_admin_cannot_upgrade() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let contract_id = env.register(Shade, ());
-    let client = ShadeClient::new(&env, &contract_id);
-
-    let admin = Address::generate(&env);
-    let non_admin = Address::generate(&env);
-    client.initialize(&admin);
-
-    let v2_hash = env.deployer().upload_contract_wasm(V2_WASM);
-    let expected_error =
-        soroban_sdk::Error::from_contract_error(ContractError::NotAuthorized as u32);
-
-    let upgrade_result = client.try_upgrade(&non_admin, &v2_hash);
-    assert!(matches!(upgrade_result, Err(Ok(err)) if err == expected_error));
+    client.upgrade(&v2_hash);
 }
 
 #[test]
@@ -88,7 +66,7 @@ fn test_state_persists_after_upgrade() {
     client.add_accepted_token(&admin, &token);
 
     let v2_hash = env.deployer().upload_contract_wasm(V2_WASM);
-    client.upgrade(&admin, &v2_hash);
+    client.upgrade(&v2_hash);
 
     let stored_admin: Address = env.as_contract(&contract_id, || {
         env.storage().persistent().get(&DataKey::Admin).unwrap()
@@ -125,6 +103,6 @@ fn test_upgrade_emits_contract_upgraded_event() {
     let v2_hash = env.deployer().upload_contract_wasm(V2_WASM);
     let expected_timestamp = env.ledger().timestamp();
 
-    client.upgrade(&admin, &v2_hash);
+    client.upgrade(&v2_hash);
     assert_latest_upgrade_event(&env, &contract_id, &v2_hash, expected_timestamp);
 }

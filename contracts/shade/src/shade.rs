@@ -32,13 +32,6 @@ impl ShadeTrait for Shade {
         core_component::get_admin(&env)
     }
 
-    fn upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) {
-        core_component::assert_admin(&env, &admin);
-        env.deployer()
-            .update_current_contract_wasm(new_wasm_hash.clone());
-        events::publish_contract_upgraded_event(&env, new_wasm_hash, env.ledger().timestamp());
-    }
-
     fn add_accepted_token(env: Env, admin: Address, token: Address) {
         pausable_component::assert_not_paused(&env);
         admin_component::add_accepted_token(&env, &admin, &token);
