@@ -6,7 +6,7 @@ use crate::errors::ContractError;
 use crate::events;
 use crate::interface::ShadeTrait;
 use crate::types::{ContractInfo, DataKey, Invoice, Merchant};
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, String};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, String};
 
 #[contract]
 pub struct Shade;
@@ -67,5 +67,13 @@ impl ShadeTrait for Shade {
 
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice {
         invoice_component::get_invoice(&env, invoice_id)
+    }
+
+    fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>) {
+        merchant_component::set_merchant_key(&env, &merchant, &key);
+    }
+
+    fn get_merchant_key(env: Env, merchant: Address) -> BytesN<32> {
+        merchant_component::get_merchant_key(&env, &merchant)
     }
 }

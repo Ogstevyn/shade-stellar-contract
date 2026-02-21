@@ -9,6 +9,7 @@ pub enum DataKey {
     ContractInfo,
     AcceptedTokens,
     Merchant(u64),
+    MerchantKey(Address),
     MerchantCount,
     MerchantId(Address),
     MerchantTokens,

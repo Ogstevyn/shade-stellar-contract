@@ -74,3 +74,17 @@ pub fn publish_invoice_created_event(
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct MerchantKeySetEvent {
+    pub merchant: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_merchant_key_set_event(env: &Env, merchant: Address, timestamp: u64) {
+    MerchantKeySetEvent {
+        merchant,
+        timestamp,
+    }
+    .publish(env);
+}
