@@ -50,10 +50,27 @@ pub struct Invoice {
 }
 
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
 pub enum InvoiceStatus {
-    Pending,
-    Paid,
-    Cancelled,
-    Refunded,
+    Pending = 0,
+    Paid = 1,
+    Cancelled = 2,
+    Refunded = 3,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MerchantFilter {
+    pub is_active: Option<bool>,
+    pub is_verified: Option<bool>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InvoiceFilter {
+    pub status: Option<u32>,
+    pub merchant: Option<Address>,
+    pub min_amount: Option<u128>,
+    pub max_amount: Option<u128>,
 }

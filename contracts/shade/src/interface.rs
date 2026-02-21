@@ -1,5 +1,5 @@
-use crate::types::{Invoice, Merchant};
-use soroban_sdk::{contracttrait, Address, Env, String};
+use crate::types::{Invoice, InvoiceFilter, Merchant, MerchantFilter};
+use soroban_sdk::{contracttrait, Address, Env, String, Vec};
 
 #[contracttrait]
 pub trait ShadeTrait {
@@ -10,6 +10,7 @@ pub trait ShadeTrait {
     fn is_accepted_token(env: Env, token: Address) -> bool;
     fn register_merchant(env: Env, merchant: Address);
     fn get_merchant(env: Env, merchant_id: u64) -> Merchant;
+    fn get_merchants(env: Env, filter: MerchantFilter) -> Vec<Merchant>;
     fn is_merchant(env: Env, merchant: Address) -> bool;
     fn create_invoice(
         env: Env,
@@ -19,4 +20,9 @@ pub trait ShadeTrait {
         token: Address,
     ) -> u64;
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice;
+    fn get_invoices(env: Env, filter: InvoiceFilter) -> Vec<Invoice>;
+
+    fn pause(env: Env, admin: Address);
+    fn unpause(env: Env, admin: Address);
+    fn is_paused(env: Env) -> bool;
 }
