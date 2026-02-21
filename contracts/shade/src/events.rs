@@ -76,6 +76,22 @@ pub fn publish_invoice_created_event(
 }
 
 #[contractevent]
+pub struct MerchantVerifiedEvent {
+    pub merchant_id: u64,
+    pub status: bool,
+    pub timestamp: u64,
+}
+
+pub fn publish_merchant_verified_event(env: &Env, merchant_id: u64, status: bool, timestamp: u64) {
+    MerchantVerifiedEvent {
+        merchant_id,
+        status,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct MerchantKeySetEvent {
     pub merchant: Address,
     pub timestamp: u64,

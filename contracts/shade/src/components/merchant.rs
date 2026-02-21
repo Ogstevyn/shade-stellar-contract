@@ -1,3 +1,4 @@
+use crate::components::core as core_component;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Merchant, MerchantFilter};
@@ -73,6 +74,24 @@ pub fn is_merchant(env: &Env, merchant: &Address) -> bool {
     env.storage()
         .persistent()
         .has(&DataKey::MerchantId(merchant.clone()))
+}
+
+pub fn verify_merchant(env: &Env, admin: &Address, merchant_id: u64, status: bool) {
+    core_component::assert_admin(env, admin);
+
+    let mut merchant_data = get_merchant(env, merchant_id);
+    merchant_data.verified = status;
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Merchant(merchant_id), &merchant_data);
+
+    events::publish_merchant_verified_event(env, merchant_id, status, env.ledger().timestamp());
+}
+
+pub fn is_merchant_verified(env: &Env, merchant_id: u64) -> bool {
+    let merchant_data = get_merchant(env, merchant_id);
+    merchant_data.verified
 }
 
 pub fn set_merchant_key(env: &Env, merchant: &Address, key: &BytesN<32>) {
