@@ -8,4 +8,5 @@ pub enum ContractError {
     NotInitialized = 2,
     NotAuthorized = 3,
     InsufficientBalance = 4,
+    AccountRestricted = 5,
 }

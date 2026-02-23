@@ -2,8 +2,8 @@
 
 use crate::account::MerchantAccount;
 use crate::account::MerchantAccountClient;
-use crate::events::TokenAddedEvent;
-use crate::types::TokenBalance;
+use crate::events::{RefundProcessedEvent, TokenAddedEvent};
+use crate::types::{DataKey, TokenBalance};
 use soroban_sdk::events::Event;
 use soroban_sdk::testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::{token, Address, Env, IntoVal, Map, Symbol, TryFromVal, Val};
@@ -160,4 +160,84 @@ fn test_has_token_returns_false_for_untracked_token() {
 
     let untracked_token = create_test_token(&env);
     assert!(!client.has_token(&untracked_token));
+}
+
+#[test]
+fn test_refund_transfers_tokens_and_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (contract_id, client, _) = setup_initialized_account(&env);
+
+    let token = create_test_token(&env);
+    let recipient = Address::generate(&env);
+    let refund_amount = 275_i128;
+    let initial_balance = 1_000_i128;
+
+    let token_admin_client = token::StellarAssetClient::new(&env, &token);
+    let token_client = token::TokenClient::new(&env, &token);
+    token_admin_client.mint(&contract_id, &initial_balance);
+
+    client.refund(&token, &refund_amount, &recipient);
+
+    let events = env.events().all();
+    assert!(events.len() >= 1);
+
+    let expected_event = RefundProcessedEvent {
+        token: token.clone(),
+        amount: refund_amount,
+        recipient: recipient.clone(),
+        timestamp: env.ledger().timestamp(),
+    };
+    let emitted = events.get(events.len() - 1).unwrap();
+    let expected_data_val = expected_event.data(&env);
+    let emitted_data = Map::<Symbol, Val>::try_from_val(&env, &emitted.2).unwrap();
+    let expected_data = Map::<Symbol, Val>::try_from_val(&env, &expected_data_val).unwrap();
+    assert_eq!(emitted.0, contract_id.clone());
+    assert_eq!(emitted.1, expected_event.topics(&env));
+    assert_eq!(emitted_data, expected_data);
+
+    assert_eq!(
+        token_client.balance(&contract_id),
+        initial_balance - refund_amount
+    );
+    assert_eq!(token_client.balance(&recipient), refund_amount);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #3)")]
+fn test_refund_panics_when_account_is_restricted() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (contract_id, client, _) = setup_initialized_account(&env);
+
+    env.as_contract(&contract_id, || {
+        env.storage().persistent().set(&DataKey::Restricted, &true);
+    });
+
+    let token = create_test_token(&env);
+    let recipient = Address::generate(&env);
+    client.refund(&token, &10_i128, &recipient);
+}
+
+#[test]
+#[should_panic]
+fn test_refund_unauthorized_access_panics() {
+    let env = Env::default();
+    let (contract_id, client, _) = setup_initialized_account(&env);
+    let token = create_test_token(&env);
+    let recipient = Address::generate(&env);
+    let random = Address::generate(&env);
+    let amount = 10_i128;
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &random,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "refund",
+                args: (&token, &amount, &recipient).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .refund(&token, &amount, &recipient);
 }

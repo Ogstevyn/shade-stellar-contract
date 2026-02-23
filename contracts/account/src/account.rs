@@ -1,6 +1,7 @@
 use crate::errors::ContractError;
 use crate::events::{
-    publish_account_initialized_event, publish_account_verified_event, publish_token_added_event,
+    publish_account_initialized_event, publish_account_verified_event,
+    publish_refund_processed_event, publish_token_added_event,
 };
 use crate::interface::MerchantAccountTrait;
 use crate::types::{AccountInfo, DataKey, TokenBalance};
@@ -22,6 +23,13 @@ fn get_tracked_tokens(env: &Env) -> Vec<Address> {
         .persistent()
         .get(&DataKey::TrackedTokens)
         .unwrap_or_else(|| Vec::new(env))
+}
+
+fn is_restricted_account(env: &Env) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Restricted)
+        .unwrap_or(false)
 }
 
 fn token_exists(tracked_tokens: &Vec<Address>, token: &Address) -> bool {
@@ -80,6 +88,21 @@ impl MerchantAccountTrait for MerchantAccount {
             .persistent()
             .set(&DataKey::TrackedTokens, &tracked_tokens);
         publish_token_added_event(&env, token, env.ledger().timestamp());
+    }
+
+    fn refund(env: Env, token: Address, amount: i128, to: Address) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        if is_restricted_account(&env) {
+            panic_with_error!(&env, ContractError::AccountRestricted);
+        }
+
+        let contract_address = env.current_contract_address();
+        let token_client = token::TokenClient::new(&env, &token);
+        token_client.transfer(&contract_address, &to, &amount);
+
+        publish_refund_processed_event(&env, token, amount, to, env.ledger().timestamp());
     }
 
     fn has_token(env: Env, token: Address) -> bool {
