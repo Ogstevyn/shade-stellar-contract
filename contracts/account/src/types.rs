@@ -5,6 +5,7 @@ pub enum DataKey {
     Manager,
     Merchant,
     Verified,
+    Restricted,
     AccountInfo,
     TrackedTokens,
 }

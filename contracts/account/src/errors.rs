@@ -6,6 +6,7 @@ use soroban_sdk::contracterror;
 pub enum ContractError {
     AlreadyInitialized = 1,
     NotInitialized = 2,
-    NotAuthorized = 3,
-    InsufficientBalance = 4,
+    AccountRestricted = 3,
+    NotAuthorized = 4,
+    InsufficientBalance = 5,
 }
