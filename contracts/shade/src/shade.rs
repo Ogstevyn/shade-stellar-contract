@@ -28,6 +28,7 @@ impl ShadeTrait for Shade {
             .set(&DataKey::ContractInfo, &contract_info);
         events::publish_initialized_event(&env, admin, env.ledger().timestamp());
     }
+
     fn get_admin(env: Env) -> Address {
         core_component::get_admin(&env)
     }
@@ -97,6 +98,29 @@ impl ShadeTrait for Shade {
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
         invoice_component::create_invoice(&env, &merchant, &description, amount, &token)
+    }
+
+    fn create_invoice_signed(
+        env: Env,
+        caller: Address,
+        merchant: Address,
+        description: String,
+        amount: i128,
+        token: Address,
+        nonce: BytesN<32>,
+        signature: BytesN<64>,
+    ) -> u64 {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::create_invoice_signed(
+            &env,
+            &caller,
+            &merchant,
+            &description,
+            amount,
+            &token,
+            &nonce,
+            &signature,
+        )
     }
 
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice {

@@ -1,8 +1,8 @@
-use crate::components::merchant;
+use crate::components::{access_control, merchant, signature_util};
 use crate::errors::ContractError;
 use crate::events;
-use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus};
-use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
+use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus, Role};
+use soroban_sdk::{panic_with_error, Address, BytesN, Env, String, Vec};
 
 pub fn create_invoice(
     env: &Env,
@@ -12,19 +12,97 @@ pub fn create_invoice(
     token: &Address,
 ) -> u64 {
     merchant_address.require_auth();
-
     if amount <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
-
     if !merchant::is_merchant(env, merchant_address) {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
-
     let merchant_id: u64 = env
         .storage()
         .persistent()
         .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap();
+    let invoice_count: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::InvoiceCount)
+        .unwrap_or(0);
+    let new_invoice_id = invoice_count + 1;
+    let invoice = Invoice {
+        id: new_invoice_id,
+        description: description.clone(),
+        amount,
+        token: token.clone(),
+        status: InvoiceStatus::Pending,
+        merchant_id,
+        payer: None,
+        date_created: env.ledger().timestamp(),
+        date_paid: None,
+    };
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(new_invoice_id), &invoice);
+    env.storage()
+        .persistent()
+        .set(&DataKey::InvoiceCount, &new_invoice_id);
+    events::publish_invoice_created_event(
+        env,
+        new_invoice_id,
+        merchant_address.clone(),
+        amount,
+        token.clone(),
+    );
+    new_invoice_id
+}
+
+pub fn create_invoice_signed(
+    env: &Env,
+    caller: &Address,
+    merchant: &Address,
+    description: &String,
+    amount: i128,
+    token: &Address,
+    nonce: &BytesN<32>,
+    signature: &BytesN<64>,
+) -> u64 {
+    // 1. Caller must be Manager or Admin
+    if !access_control::has_role(env, caller, Role::Manager)
+        && !access_control::has_role(env, caller, Role::Admin)
+    {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+    caller.require_auth();
+
+    // 2. Validate amount
+    if amount <= 0 {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
+
+    // 3. Merchant must exist
+    if !merchant::is_merchant(env, merchant) {
+        panic_with_error!(env, ContractError::MerchantNotFound);
+    }
+
+    // 4. Verify merchant's cryptographic signature
+    signature_util::verify_invoice_signature(
+        env,
+        merchant,
+        description,
+        amount,
+        token,
+        nonce,
+        signature,
+    );
+
+    // 5. Invalidate nonce to prevent replay attacks
+    signature_util::invalidate_nonce(env, merchant, nonce);
+
+    // 6. Standard invoice creation
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant.clone()))
         .unwrap();
 
     let invoice_count: u64 = env
@@ -54,10 +132,11 @@ pub fn create_invoice(
         .persistent()
         .set(&DataKey::InvoiceCount, &new_invoice_id);
 
+    // 7. Emit standard InvoiceCreated event
     events::publish_invoice_created_event(
         env,
         new_invoice_id,
-        merchant_address.clone(),
+        merchant.clone(),
         amount,
         token.clone(),
     );
@@ -78,9 +157,7 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
         .persistent()
         .get(&DataKey::InvoiceCount)
         .unwrap_or(0);
-
     let mut invoices: Vec<Invoice> = Vec::new(env);
-
     for i in 1..=invoice_count {
         if let Some(invoice) = env
             .storage()
@@ -88,13 +165,11 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
             .get::<_, Invoice>(&DataKey::Invoice(i))
         {
             let mut matches = true;
-
             if let Some(status) = filter.status {
                 if invoice.status as u32 != status {
                     matches = false;
                 }
             }
-
             if let Some(merchant) = &filter.merchant {
                 if let Some(merchant_id) = env
                     .storage()
@@ -108,24 +183,20 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
                     matches = false;
                 }
             }
-
             if let Some(min_amount) = filter.min_amount {
                 if invoice.amount < min_amount as i128 {
                     matches = false;
                 }
             }
-
             if let Some(max_amount) = filter.max_amount {
                 if invoice.amount > max_amount as i128 {
                     matches = false;
                 }
             }
-
             if matches {
                 invoices.push_back(invoice);
             }
         }
     }
-
     invoices
 }
