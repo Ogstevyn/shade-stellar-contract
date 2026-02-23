@@ -1,5 +1,5 @@
-use crate::components::core as core_component;
 use crate::components::access_control;
+use crate::components::core as core_component;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Merchant, MerchantFilter, Role};

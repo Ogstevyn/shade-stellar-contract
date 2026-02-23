@@ -48,6 +48,9 @@ pub struct AccountRestricted {
 
 pub fn publish_account_restricted_event(env: &Env, status: bool, timestamp: u64) {
     AccountRestricted { status, timestamp }.publish(env);
+}
+
+#[contractevent]
 pub struct RefundProcessedEvent {
     pub token: Address,
     pub amount: i128,
