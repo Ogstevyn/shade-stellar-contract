@@ -20,4 +20,6 @@ pub enum ContractError {
     InvalidInvoiceStatus = 14,
     RefundPeriodExpired = 15,
     WasmHashNotSet = 16,
+    InvoiceAlreadyPaid = 17,
+    MerchantAccountNotSet = 18,
 }

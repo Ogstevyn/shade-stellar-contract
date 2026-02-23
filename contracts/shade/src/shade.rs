@@ -156,4 +156,17 @@ impl ShadeTrait for Shade {
     fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         upgrade_component::upgrade(&env, &new_wasm_hash);
     }
+
+    fn set_merchant_account(env: Env, merchant: Address, account: Address) {
+        merchant_component::set_merchant_account(&env, &merchant, &account);
+    }
+
+    fn get_merchant_account(env: Env, merchant_id: u64) -> Address {
+        merchant_component::get_merchant_account(&env, merchant_id)
+    }
+
+    fn pay_invoice(env: Env, payer: Address, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::pay_invoice(&env, &payer, invoice_id);
+    }
 }

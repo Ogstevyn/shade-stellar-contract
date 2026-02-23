@@ -15,6 +15,7 @@ pub enum DataKey {
     TokenFee(Address),
     MerchantTokens,
     MerchantBalance(Address),
+    MerchantAccount(u64),
     Invoice(u64),
     InvoiceCount,
     ReentrancyStatus,

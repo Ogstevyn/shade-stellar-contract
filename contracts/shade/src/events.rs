@@ -296,3 +296,33 @@ pub fn publish_contract_upgraded_event(env: &Env, new_wasm_hash: BytesN<32>, tim
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct InvoicePaidEvent {
+    pub invoice_id: u64,
+    pub payer: Address,
+    pub amount: i128,
+    pub fee: i128,
+    pub merchant_amount: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_invoice_paid_event(
+    env: &Env,
+    invoice_id: u64,
+    payer: Address,
+    amount: i128,
+    fee: i128,
+    merchant_amount: i128,
+    timestamp: u64,
+) {
+    InvoicePaidEvent {
+        invoice_id,
+        payer,
+        amount,
+        fee,
+        merchant_amount,
+        timestamp,
+    }
+    .publish(env);
+}
