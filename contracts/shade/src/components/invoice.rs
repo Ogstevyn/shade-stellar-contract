@@ -105,7 +105,6 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
                         matches = false;
                     }
                 } else {
-                    // Merchant not found means no invoices for it
                     matches = false;
                 }
             }

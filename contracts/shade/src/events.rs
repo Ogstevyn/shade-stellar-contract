@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Env};
+use soroban_sdk::{contractevent, Address, BytesN, Env};
 
 #[contractevent]
 pub struct InitalizedEvent {
@@ -52,6 +52,27 @@ pub fn publish_merchant_registered_event(
 }
 
 #[contractevent]
+pub struct MerchantStatusChangedEvent {
+    pub merchant_id: u64,
+    pub active: bool,
+    pub timestamp: u64,
+}
+
+pub fn publish_merchant_status_changed_event(
+    env: &Env,
+    merchant_id: u64,
+    active: bool,
+    timestamp: u64,
+) {
+    MerchantStatusChangedEvent {
+        merchant_id,
+        active,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoiceCreatedEvent {
     pub invoice_id: u64,
     pub merchant: Address,
@@ -94,12 +115,19 @@ pub fn publish_merchant_verified_event(env: &Env, merchant_id: u64, status: bool
 #[contractevent]
 pub struct MerchantKeySetEvent {
     pub merchant: Address,
+    pub key: BytesN<32>,
     pub timestamp: u64,
 }
 
-pub fn publish_merchant_key_set_event(env: &Env, merchant: Address, timestamp: u64) {
+pub fn publish_merchant_key_set_event(
+    env: &Env,
+    merchant: Address,
+    key: BytesN<32>,
+    timestamp: u64,
+) {
     MerchantKeySetEvent {
         merchant,
+        key,
         timestamp,
     }
     .publish(env);
@@ -168,20 +196,29 @@ pub fn publish_contract_unpaused_event(env: &Env, admin: Address, timestamp: u64
 }
 
 #[contractevent]
-pub struct ContractUpgradedEvent {
-    pub admin: Address,
-    pub new_wasm_hash: soroban_sdk::BytesN<32>,
+pub struct FeeSetEvent {
+    pub token: Address,
+    pub fee: i128,
     pub timestamp: u64,
 }
 
-pub fn publish_contract_upgraded_event(
-    env: &Env,
-    admin: Address,
-    new_wasm_hash: soroban_sdk::BytesN<32>,
-    timestamp: u64,
-) {
+pub fn publish_fee_set_event(env: &Env, token: Address, fee: i128, timestamp: u64) {
+    FeeSetEvent {
+        token,
+        fee,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct ContractUpgradedEvent {
+    pub new_wasm_hash: BytesN<32>,
+    pub timestamp: u64,
+}
+
+pub fn publish_contract_upgraded_event(env: &Env, new_wasm_hash: BytesN<32>, timestamp: u64) {
     ContractUpgradedEvent {
-        admin,
         new_wasm_hash,
         timestamp,
     }

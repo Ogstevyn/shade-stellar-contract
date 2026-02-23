@@ -20,6 +20,7 @@ Thumbs.db
 
 # Build artifacts
 *.wasm
+!contracts/shade/src/tests/fixtures/upgrade_v2_contract.wasm
 *.wasm.d
 
 # Test artifacts

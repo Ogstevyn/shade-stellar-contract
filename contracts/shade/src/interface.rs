@@ -8,10 +8,14 @@ pub trait ShadeTrait {
     fn add_accepted_token(env: Env, admin: Address, token: Address);
     fn remove_accepted_token(env: Env, admin: Address, token: Address);
     fn is_accepted_token(env: Env, token: Address) -> bool;
+    fn set_fee(env: Env, admin: Address, token: Address, fee: i128);
+    fn get_fee(env: Env, token: Address) -> i128;
     fn register_merchant(env: Env, merchant: Address);
     fn get_merchant(env: Env, merchant_id: u64) -> Merchant;
     fn get_merchants(env: Env, filter: MerchantFilter) -> Vec<Merchant>;
     fn is_merchant(env: Env, merchant: Address) -> bool;
+    fn set_merchant_status(env: Env, admin: Address, merchant_id: u64, status: bool);
+    fn is_merchant_active(env: Env, merchant_id: u64) -> bool;
     fn verify_merchant(env: Env, admin: Address, merchant_id: u64, status: bool);
     fn is_merchant_verified(env: Env, merchant_id: u64) -> bool;
     fn create_invoice(
@@ -31,6 +35,5 @@ pub trait ShadeTrait {
     fn pause(env: Env, admin: Address);
     fn unpause(env: Env, admin: Address);
     fn is_paused(env: Env) -> bool;
-
-    fn upgrade(env: Env, new_wasm_hash: soroban_sdk::BytesN<32>);
+    fn upgrade(env: Env, new_wasm_hash: BytesN<32>);
 }

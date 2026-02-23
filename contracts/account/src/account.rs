@@ -1,5 +1,7 @@
 use crate::errors::ContractError;
-use crate::events::{publish_account_initialized_event, publish_token_added_event};
+use crate::events::{
+    publish_account_initialized_event, publish_account_verified_event, publish_token_added_event,
+};
 use crate::interface::MerchantAccountTrait;
 use crate::types::{AccountInfo, DataKey, TokenBalance};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, Env, Vec};
@@ -103,5 +105,20 @@ impl MerchantAccountTrait for MerchantAccount {
         }
 
         balances
+    }
+
+    fn verify_account(env: Env) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        env.storage().persistent().set(&DataKey::Verified, &true);
+        publish_account_verified_event(&env, env.ledger().timestamp());
+    }
+
+    fn is_verified_account(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Verified)
+            .unwrap_or(false)
     }
 }

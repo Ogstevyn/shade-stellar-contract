@@ -46,6 +46,15 @@ impl ShadeTrait for Shade {
         admin_component::is_accepted_token(&env, &token)
     }
 
+    fn set_fee(env: Env, admin: Address, token: Address, fee: i128) {
+        pausable_component::assert_not_paused(&env);
+        admin_component::set_fee(&env, &admin, &token, fee);
+    }
+
+    fn get_fee(env: Env, token: Address) -> i128 {
+        admin_component::get_fee(&env, &token)
+    }
+
     fn register_merchant(env: Env, merchant: Address) {
         pausable_component::assert_not_paused(&env);
         merchant_component::register_merchant(&env, &merchant);
@@ -61,6 +70,14 @@ impl ShadeTrait for Shade {
 
     fn is_merchant(env: Env, merchant: Address) -> bool {
         merchant_component::is_merchant(&env, &merchant)
+    }
+
+    fn set_merchant_status(env: Env, admin: Address, merchant_id: u64, status: bool) {
+        merchant_component::set_merchant_status(&env, &admin, merchant_id, status);
+    }
+
+    fn is_merchant_active(env: Env, merchant_id: u64) -> bool {
+        merchant_component::is_merchant_active(&env, merchant_id)
     }
 
     fn verify_merchant(env: Env, admin: Address, merchant_id: u64, status: bool) {
@@ -122,7 +139,7 @@ impl ShadeTrait for Shade {
         pausable_component::is_paused(&env)
     }
 
-    fn upgrade(env: Env, new_wasm_hash: soroban_sdk::BytesN<32>) {
+    fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         upgrade_component::upgrade(&env, &new_wasm_hash);
     }
 }

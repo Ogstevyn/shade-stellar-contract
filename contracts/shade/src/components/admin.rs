@@ -1,13 +1,13 @@
 use crate::components::{core, reentrancy};
+use crate::errors::ContractError;
 use crate::events;
 use crate::types::DataKey;
-use soroban_sdk::{token, Address, Env, Vec};
+use soroban_sdk::{panic_with_error, token, Address, Env, Vec};
 
 pub fn add_accepted_token(env: &Env, admin: &Address, token: &Address) {
     reentrancy::enter(env);
     core::assert_admin(env, admin);
 
-    // Fail if the address is not a token contract.
     let _ = token::Client::new(env, token).symbol();
 
     let mut accepted_tokens = get_accepted_tokens(env);
@@ -48,6 +48,29 @@ pub fn remove_accepted_token(env: &Env, admin: &Address, token: &Address) {
 
 pub fn is_accepted_token(env: &Env, token: &Address) -> bool {
     contains_token(&get_accepted_tokens(env), token)
+}
+
+pub fn set_fee(env: &Env, admin: &Address, token: &Address, fee: i128) {
+    reentrancy::enter(env);
+    core::assert_admin(env, admin);
+
+    if !is_accepted_token(env, token) {
+        panic_with_error!(env, ContractError::TokenNotAccepted);
+    }
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::TokenFee(token.clone()), &fee);
+
+    events::publish_fee_set_event(env, token.clone(), fee, env.ledger().timestamp());
+    reentrancy::exit(env);
+}
+
+pub fn get_fee(env: &Env, token: &Address) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::TokenFee(token.clone()))
+        .unwrap_or(0)
 }
 
 fn get_accepted_tokens(env: &Env) -> Vec<Address> {
