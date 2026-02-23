@@ -97,6 +97,33 @@ pub fn publish_invoice_created_event(
 }
 
 #[contractevent]
+pub struct InvoicePartiallyRefundedEvent {
+    pub invoice_id: u64,
+    pub merchant: Address,
+    pub amount_refunded_now: i128,
+    pub total_amount_refunded: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_invoice_partially_refunded_event(
+    env: &Env,
+    invoice_id: u64,
+    merchant: Address,
+    amount_refunded_now: i128,
+    total_amount_refunded: i128,
+    timestamp: u64,
+) {
+    InvoicePartiallyRefundedEvent {
+        invoice_id,
+        merchant,
+        amount_refunded_now,
+        total_amount_refunded,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct MerchantVerifiedEvent {
     pub merchant_id: u64,
     pub status: bool,

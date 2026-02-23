@@ -127,6 +127,16 @@ impl ShadeTrait for Shade {
         invoice_component::get_invoices(&env, filter)
     }
 
+    fn refund_invoice_partial(env: Env, invoice_id: u64, amount: i128) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::refund_invoice_partial(&env, invoice_id, amount);
+    }
+
+    fn refund_invoice(env: Env, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::refund_invoice(&env, invoice_id);
+    }
+
     fn pause(env: Env, admin: Address) {
         pausable_component::pause(&env, &admin);
     }

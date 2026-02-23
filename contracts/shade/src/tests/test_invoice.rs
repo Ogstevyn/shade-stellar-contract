@@ -141,3 +141,28 @@ fn test_create_invoice_invalid_amount() {
 
     client.create_invoice(&merchant, &description, &amount, &token);
 }
+
+// Add simplistic mock token test for refunds or at least test the validations
+// Since refunding requires a token transfer and we are not setting up a full token contract mock here,
+// we will just test the validations up to the require_auth or error points, 
+// or maybe skip full token integration if it's too complex for this file.
+// Alternatively, we can use the default token implementation from Soroban SDK if available.
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #13)")]
+fn test_refund_invalid_status() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    let token = Address::generate(&env);
+    let description = String::from_str(&env, "Test Invoice");
+    let amount: i128 = 1000;
+
+    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token);
+    
+    // Status is pending, should panic with InvalidInvoiceStatus
+    client.refund_invoice_partial(&invoice_id, &500);
+}
+
