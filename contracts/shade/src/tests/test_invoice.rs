@@ -269,6 +269,31 @@ fn test_refund_invoice_fails_after_refund_window() {
     client.refund_invoice(&merchant, &invoice_id);
 }
 
+// Void Invoice Tests
+
+#[test]
+fn test_void_invoice_success() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    let token = Address::generate(&env);
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+
+    // Verify invoice is Pending
+    let invoice_before = client.get_invoice(&invoice_id);
+    assert_eq!(invoice_before.status, InvoiceStatus::Pending);
+
+    // Void the invoice
+    client.void_invoice(&merchant, &invoice_id);
+
+    // Verify invoice is now Cancelled
+    let invoice_after = client.get_invoice(&invoice_id);
+    assert_eq!(invoice_after.status, InvoiceStatus::Cancelled);
+}
+
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_refund_invoice_fails_for_non_owner() {
@@ -304,4 +329,127 @@ fn test_refund_invoice_fails_for_non_owner() {
     );
 
     client.refund_invoice(&other_merchant, &invoice_id);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #1)")]
+fn test_void_invoice_non_owner() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    let token = Address::generate(&env);
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+
+    // Try to void with different merchant (should panic with NotAuthorized)
+    let other_merchant = Address::generate(&env);
+    client.register_merchant(&other_merchant);
+    client.void_invoice(&other_merchant, &invoice_id);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #14)")]
+fn test_void_invoice_already_paid() {
+    let (env, client, _contract_id, admin, token) = setup_test_with_payment();
+
+    // Register merchant
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    // Create merchant account
+    let merchant_account = Address::generate(&env);
+    client.set_merchant_account(&merchant, &merchant_account);
+
+    // Create and pay invoice
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+
+    let customer = Address::generate(&env);
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    client.pay_invoice(&customer, &invoice_id);
+
+    // Try to void paid invoice (should panic with InvalidInvoiceStatus)
+    client.void_invoice(&merchant, &invoice_id);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #14)")]
+fn test_void_invoice_already_cancelled() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    let token = Address::generate(&env);
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+
+    // Void the invoice once
+    client.void_invoice(&merchant, &invoice_id);
+
+    // Try to void again (should panic with InvalidInvoiceStatus)
+    client.void_invoice(&merchant, &invoice_id);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #14)")]
+fn test_pay_cancelled_invoice() {
+    let (env, client, _contract_id, admin, token) = setup_test_with_payment();
+
+    // Register merchant
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    // Create merchant account
+    let merchant_account = Address::generate(&env);
+    client.set_merchant_account(&merchant, &merchant_account);
+
+    // Create invoice
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+
+    // Void the invoice
+    client.void_invoice(&merchant, &invoice_id);
+
+    // Try to pay cancelled invoice (should panic with InvalidInvoiceStatus)
+    let customer = Address::generate(&env);
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    client.pay_invoice(&customer, &invoice_id);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #8)")]
+fn test_void_non_existent_invoice() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    // Try to void non-existent invoice (should panic with InvoiceNotFound)
+    client.void_invoice(&merchant, &999);
+}
+
+fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let shade_contract_id = env.register(Shade, ());
+    let shade_client = ShadeClient::new(&env, &shade_contract_id);
+
+    let admin = Address::generate(&env);
+    shade_client.initialize(&admin);
+
+    let token_admin = Address::generate(&env);
+    let token = env.register_stellar_asset_contract_v2(token_admin.clone());
+
+    shade_client.add_accepted_token(&admin, &token.address());
+    shade_client.set_fee(&admin, &token.address(), &500);
+
+    (env, shade_client, shade_contract_id, admin, token.address())
 }

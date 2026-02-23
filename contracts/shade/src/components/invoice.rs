@@ -278,3 +278,43 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) {
         env.ledger().timestamp(),
     );
 }
+
+pub fn void_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
+    merchant_address.require_auth();
+
+    // Get invoice
+    let mut invoice = get_invoice(env, invoice_id);
+
+    // Get merchant ID for ownership check
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    // Verify merchant owns this invoice
+    if invoice.merchant_id != merchant_id {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    // Verify invoice status is Pending
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    // Update status to Cancelled
+    invoice.status = InvoiceStatus::Cancelled;
+
+    // Save updated invoice
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    // Emit event
+    events::publish_invoice_cancelled_event(
+        env,
+        invoice_id,
+        merchant_address.clone(),
+        env.ledger().timestamp(),
+    );
+}

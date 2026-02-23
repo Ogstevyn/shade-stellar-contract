@@ -42,4 +42,5 @@ pub trait ShadeTrait {
     fn set_merchant_account(env: Env, merchant: Address, account: Address);
     fn get_merchant_account(env: Env, merchant_id: u64) -> Address;
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64);
+    fn void_invoice(env: Env, merchant: Address, invoice_id: u64);
 }
