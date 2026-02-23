@@ -147,8 +147,13 @@ impl ShadeTrait for Shade {
         access_control_component::has_role(&env, &user, role)
     }
 
-    fn get_invoices(env: Env, filter: InvoiceFilter) -> Vec<Invoice> {
+fn get_invoices(env: Env, filter: InvoiceFilter) -> Vec<Invoice> {
         invoice_component::get_invoices(&env, filter)
+    }
+
+    fn pay_invoice_admin(env: Env, caller: Address, payer: Address, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::pay_invoice_admin(&env, &caller, &payer, invoice_id);
     }
 
     fn pause(env: Env, admin: Address) {

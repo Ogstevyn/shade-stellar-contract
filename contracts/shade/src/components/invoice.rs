@@ -1,8 +1,8 @@
-use crate::components::{access_control, merchant, signature_util};
+use crate::components::{access_control, admin as admin_component, merchant, signature_util};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus, Role};
-use soroban_sdk::{panic_with_error, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{panic_with_error, token, Address, BytesN, Env, String, Vec};
 
 pub fn create_invoice(
     env: &Env,
@@ -66,7 +66,6 @@ pub fn create_invoice_signed(
     nonce: &BytesN<32>,
     signature: &BytesN<64>,
 ) -> u64 {
-    // 1. Caller must be Manager or Admin
     if !access_control::has_role(env, caller, Role::Manager)
         && !access_control::has_role(env, caller, Role::Admin)
     {
@@ -74,17 +73,14 @@ pub fn create_invoice_signed(
     }
     caller.require_auth();
 
-    // 2. Validate amount
     if amount <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
 
-    // 3. Merchant must exist
     if !merchant::is_merchant(env, merchant) {
         panic_with_error!(env, ContractError::MerchantNotFound);
     }
 
-    // 4. Verify merchant's cryptographic signature
     signature_util::verify_invoice_signature(
         env,
         merchant,
@@ -95,10 +91,8 @@ pub fn create_invoice_signed(
         signature,
     );
 
-    // 5. Invalidate nonce to prevent replay attacks
     signature_util::invalidate_nonce(env, merchant, nonce);
 
-    // 6. Standard invoice creation
     let merchant_id: u64 = env
         .storage()
         .persistent()
@@ -132,7 +126,6 @@ pub fn create_invoice_signed(
         .persistent()
         .set(&DataKey::InvoiceCount, &new_invoice_id);
 
-    // 7. Emit standard InvoiceCreated event
     events::publish_invoice_created_event(
         env,
         new_invoice_id,
@@ -142,6 +135,69 @@ pub fn create_invoice_signed(
     );
 
     new_invoice_id
+}
+
+pub fn pay_invoice_admin(
+    env: &Env,
+    caller: &Address,
+    payer: &Address,
+    invoice_id: u64,
+) {
+    // 1. Authenticate caller
+    caller.require_auth();
+
+    // 2. Authorize — must be Admin or Manager
+    if !access_control::has_role(env, caller, Role::Manager)
+        && !access_control::has_role(env, caller, Role::Admin)
+    {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    // 3. Retrieve invoice and ensure it is Pending
+    let mut invoice = get_invoice(env, invoice_id);
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvoiceAlreadyPaid);
+    }
+
+    // 4. Get merchant address from merchant_id
+    let merchant_data: crate::types::Merchant = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Merchant(invoice.merchant_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
+
+    // 5. Calculate fee
+    let fee_amount = admin_component::get_fee(env, &invoice.token);
+    let net_amount = invoice.amount - fee_amount;
+
+    // 6. Transfer net amount from Shade contract to merchant address
+    let token_client = token::Client::new(env, &invoice.token);
+    token_client.transfer(
+        &env.current_contract_address(),
+        &merchant_data.address,
+        &net_amount,
+    );
+    // fee_amount stays in the Shade contract balance as revenue
+
+    // 7. Update invoice state
+    invoice.status = InvoiceStatus::Paid;
+    invoice.payer = Some(payer.clone());
+    invoice.date_paid = Some(env.ledger().timestamp());
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    // 8. Emit InvoicePaid event
+    events::publish_invoice_paid_event(
+        env,
+        invoice_id,
+        payer.clone(),
+        merchant_data.address,
+        invoice.amount,
+        fee_amount,
+        invoice.token.clone(),
+        env.ledger().timestamp(),
+    );
 }
 
 pub fn get_invoice(env: &Env, invoice_id: u64) -> Invoice {

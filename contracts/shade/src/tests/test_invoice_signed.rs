@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{InvoiceStatus, Role};
-use soroban_sdk::testutils::{Address as _, Events as_};
+use soroban_sdk::testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, TryIntoVal, Val};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

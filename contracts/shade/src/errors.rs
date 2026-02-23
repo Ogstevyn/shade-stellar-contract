@@ -1,5 +1,6 @@
 use soroban_sdk::contracterror;
 
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
@@ -18,4 +19,5 @@ pub enum ContractError {
     TokenNotAccepted = 12,
     InvalidSignature = 13,
     NonceAlreadyUsed = 14,
+    InvoiceAlreadyPaid = 15,
 }
