@@ -36,4 +36,10 @@ pub trait ShadeTrait {
     fn unpause(env: Env, admin: Address);
     fn is_paused(env: Env) -> bool;
     fn upgrade(env: Env, new_wasm_hash: BytesN<32>);
+    fn restrict_merchant_account(
+        env: Env,
+        caller: Address,
+        merchant_address: Address,
+        status: bool,
+    );
 }

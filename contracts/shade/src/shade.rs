@@ -142,4 +142,13 @@ impl ShadeTrait for Shade {
     fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         upgrade_component::upgrade(&env, &new_wasm_hash);
     }
+
+    fn restrict_merchant_account(
+        env: Env,
+        caller: Address,
+        merchant_address: Address,
+        status: bool,
+    ) {
+        merchant_component::restrict_merchant_account(&env, &caller, &merchant_address, status);
+    }
 }

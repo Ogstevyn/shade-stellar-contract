@@ -1,8 +1,14 @@
-use crate::components::core;
+use crate::components::core as core_component;
+use crate::components::access_control;
 use crate::errors::ContractError;
 use crate::events;
-use crate::types::{DataKey, Merchant, MerchantFilter};
-use soroban_sdk::{panic_with_error, Address, BytesN, Env, Vec};
+use crate::types::{DataKey, Merchant, MerchantFilter, Role};
+use soroban_sdk::{contractclient, panic_with_error, Address, BytesN, Env, Vec};
+
+#[contractclient(name = "MerchantAccountClient")]
+pub trait MerchantAccountContract {
+    fn restrict_account(env: Env, status: bool);
+}
 
 pub fn register_merchant(env: &Env, merchant: &Address) {
     merchant.require_auth();
@@ -77,7 +83,7 @@ pub fn is_merchant(env: &Env, merchant: &Address) -> bool {
 }
 
 pub fn set_merchant_status(env: &Env, admin: &Address, merchant_id: u64, status: bool) {
-    core::assert_admin(env, admin);
+    core_component::assert_admin(env, admin);
 
     if merchant_id == 0 {
         panic_with_error!(env, ContractError::MerchantNotFound);
@@ -138,7 +144,7 @@ pub fn is_merchant_active(env: &Env, merchant_id: u64) -> bool {
 }
 
 pub fn verify_merchant(env: &Env, admin: &Address, merchant_id: u64, status: bool) {
-    core::assert_admin(env, admin);
+    core_component::assert_admin(env, admin);
 
     let mut merchant_data = get_merchant(env, merchant_id);
     merchant_data.verified = status;
@@ -217,4 +223,36 @@ pub fn get_merchants(env: &Env, filter: MerchantFilter) -> Vec<Merchant> {
     }
 
     merchants
+}
+
+pub fn restrict_merchant_account(
+    env: &Env,
+    caller: &Address,
+    merchant_address: &Address,
+    status: bool,
+) {
+    caller.require_auth();
+
+    if !access_control::has_role(env, caller, Role::Admin)
+        && !access_control::has_role(env, caller, Role::Manager)
+    {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    let account_address: Address = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantAccount(merchant_address.clone()))
+        .unwrap_or_else(|| merchant_address.clone());
+
+    let client = MerchantAccountClient::new(env, &account_address);
+    client.restrict_account(&status);
+
+    events::publish_account_restricted_event(
+        env,
+        merchant_address.clone(),
+        status,
+        caller.clone(),
+        env.ledger().timestamp(),
+    );
 }

@@ -19,6 +19,7 @@ pub enum DataKey {
     InvoiceCount,
     ReentrancyStatus,
     Role(Address, Role),
+    MerchantAccount(Address),
 }
 
 #[contracttype]
