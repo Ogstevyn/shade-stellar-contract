@@ -2,6 +2,8 @@ use crate::errors::ContractError;
 use crate::events::{
     publish_account_initialized_event, publish_account_verified_event,
     publish_refund_processed_event, publish_token_added_event, publish_withdrawal_to_event,
+    publish_account_initialized_event, publish_account_restricted_event,
+    publish_account_verified_event, publish_refund_processed_event, publish_token_added_event,
 };
 use crate::interface::MerchantAccountTrait;
 use crate::types::{AccountInfo, DataKey, TokenBalance};
@@ -144,6 +146,21 @@ impl MerchantAccountTrait for MerchantAccount {
             .get(&DataKey::Verified)
             .unwrap_or(false)
     }
+
+    fn restrict_account(env: Env, status: bool) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Restricted, &status);
+        publish_account_restricted_event(&env, status, env.ledger().timestamp());
+    }
+
+    fn is_restricted_account(env: Env) -> bool {
+        is_restricted_account(&env)
+    }
+
     fn withdraw_to(env: Env, token: Address, amount: i128, recipient: Address) {
         // Only the merchant can initiate withdrawals to another account
         let merchant = get_manager(&env);

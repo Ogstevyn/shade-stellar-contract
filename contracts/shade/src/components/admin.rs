@@ -50,6 +50,15 @@ pub fn is_accepted_token(env: &Env, token: &Address) -> bool {
     contains_token(&get_accepted_tokens(env), token)
 }
 
+pub fn set_account_wasm_hash(env: &Env, admin: &Address, wasm_hash: &soroban_sdk::BytesN<32>) {
+    reentrancy::enter(env);
+    core::assert_admin(env, admin);
+    env.storage()
+        .persistent()
+        .set(&DataKey::AccountWasmHash, wasm_hash);
+    reentrancy::exit(env);
+}
+
 pub fn set_fee(env: &Env, admin: &Address, token: &Address, fee: i128) {
     reentrancy::enter(env);
     core::assert_admin(env, admin);

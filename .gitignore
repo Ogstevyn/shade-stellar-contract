@@ -29,4 +29,7 @@ Thumbs.db
 # Test snapshots
 test_snapshots/
 
+# Stellar contract deployment artifacts
+.stellar/
+
 issue_description.md

@@ -46,6 +46,10 @@ impl ShadeTrait for Shade {
         admin_component::is_accepted_token(&env, &token)
     }
 
+    fn set_account_wasm_hash(env: Env, admin: Address, wasm_hash: soroban_sdk::BytesN<32>) {
+        admin_component::set_account_wasm_hash(&env, &admin, &wasm_hash);
+    }
+
     fn set_fee(env: Env, admin: Address, token: Address, fee: i128) {
         pausable_component::assert_not_paused(&env);
         admin_component::set_fee(&env, &admin, &token, fee);
@@ -151,5 +155,23 @@ impl ShadeTrait for Shade {
 
     fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         upgrade_component::upgrade(&env, &new_wasm_hash);
+    }
+
+    fn set_merchant_account(env: Env, merchant: Address, account: Address) {
+        merchant_component::set_merchant_account(&env, &merchant, &account);
+    }
+
+    fn get_merchant_account(env: Env, merchant_id: u64) -> Address {
+        merchant_component::get_merchant_account(&env, merchant_id)
+    }
+
+    fn pay_invoice(env: Env, payer: Address, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::pay_invoice(&env, &payer, invoice_id);
+    }
+
+    fn void_invoice(env: Env, merchant: Address, invoice_id: u64) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::void_invoice(&env, &merchant, invoice_id);
     }
 }

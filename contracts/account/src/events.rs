@@ -110,4 +110,11 @@ pub fn publish_withdrawal_event(
         timestamp,
     }
     .publish(env);
+pub struct AccountRestricted {
+    pub status: bool,
+    pub timestamp: u64,
+}
+
+pub fn publish_account_restricted_event(env: &Env, status: bool, timestamp: u64) {
+    AccountRestricted { status, timestamp }.publish(env);
 }

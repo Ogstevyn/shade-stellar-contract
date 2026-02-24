@@ -1,9 +1,9 @@
-use crate::components::merchant;
+use crate::components::{admin, merchant};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus};
 use account::account::MerchantAccountClient;
-use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
+use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
 
 pub const MAX_REFUND_DURATION: u64 = 604_800;
 
@@ -215,4 +215,106 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
             now,
         );
     }
+}
+
+pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) {
+    payer.require_auth();
+
+    // Get invoice
+    let mut invoice = get_invoice(env, invoice_id);
+
+    // Check invoice status
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    // Check token is accepted
+    if !admin::is_accepted_token(env, &invoice.token) {
+        panic_with_error!(env, ContractError::TokenNotAccepted);
+    }
+
+    // Get fee in basis points (e.g., 500 = 5%)
+    let fee_bps = admin::get_fee(env, &invoice.token);
+
+    // Calculate fee and merchant amount
+    // fee = (amount * fee_bps) / 10000
+    let fee_amount = (invoice.amount * fee_bps) / 10000;
+    let merchant_amount = invoice.amount - fee_amount;
+
+    // Get merchant account address
+    let merchant_account = merchant::get_merchant_account(env, invoice.merchant_id);
+
+    // Get token client
+    let token_client = token::TokenClient::new(env, &invoice.token);
+    let shade_contract = env.current_contract_address();
+
+    // Transfer fee to Shade contract
+    if fee_amount > 0 {
+        token_client.transfer(payer, &shade_contract, &fee_amount);
+    }
+
+    // Transfer merchant amount to merchant account
+    if merchant_amount > 0 {
+        token_client.transfer(payer, &merchant_account, &merchant_amount);
+    }
+
+    // Update invoice
+    invoice.status = InvoiceStatus::Paid;
+    invoice.payer = Some(payer.clone());
+    invoice.date_paid = Some(env.ledger().timestamp());
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    // Emit event
+    events::publish_invoice_paid_event(
+        env,
+        invoice_id,
+        payer.clone(),
+        invoice.amount,
+        fee_amount,
+        merchant_amount,
+        env.ledger().timestamp(),
+    );
+}
+
+pub fn void_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
+    merchant_address.require_auth();
+
+    // Get invoice
+    let mut invoice = get_invoice(env, invoice_id);
+
+    // Get merchant ID for ownership check
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    // Verify merchant owns this invoice
+    if invoice.merchant_id != merchant_id {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    // Verify invoice status is Pending
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    // Update status to Cancelled
+    invoice.status = InvoiceStatus::Cancelled;
+
+    // Save updated invoice
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    // Emit event
+    events::publish_invoice_cancelled_event(
+        env,
+        invoice_id,
+        merchant_address.clone(),
+        env.ledger().timestamp(),
+    );
 }
