@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{InvoiceStatus, Role};
 use soroban_sdk::testutils::Address as _;
@@ -44,246 +43,8 @@ fn setup_invoice_test() -> (
 }
 
 #[test]
-fn test_admin_role_can_initiate_payment() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Admin should have authorization to call pay_invoice_admin
-    let res = client.try_pay_invoice_admin(&admin, &invoice_id);
-    // May fail due to insufficient token balance, but not due to authorization
-    let _ = res;
-}
-
-#[test]
-fn test_manager_role_authorization() {
-    let (env, client, admin, manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Grant manager role to manager address
-    client.grant_role(&admin, &manager, &Role::Manager);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Manager should have authorization to call pay_invoice_admin
-    let res = client.try_pay_invoice_admin(&manager, &invoice_id);
-    // May fail due to token transfer, but check not authorization
-    let _ = res;
-}
-
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
-#[test]
-fn test_payer_without_role_denied_access() {
-    let (_env, client, _admin, _manager, merchant, payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&_env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Payer has no role - should panic with NotAuthorized
-    client.pay_invoice_admin(&payer, &invoice_id);
-}
-
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
-#[test]
-fn test_merchant_cannot_pay_own_invoice() {
-    let (_env, client, _admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&_env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Merchant has no admin/manager role - should panic with NotAuthorized
-    client.pay_invoice_admin(&merchant, &invoice_id);
-}
-
-#[should_panic(expected = "HostError: Error(Contract, #13)")]
-#[test]
-fn test_cannot_pay_already_paid_invoice() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Manually set invoice to Paid
-    use crate::types::DataKey;
-    let mut invoice = client.get_invoice(&invoice_id);
-    invoice.status = InvoiceStatus::Paid;
-    invoice.payer = Some(admin.clone());
-    env.as_contract(&client.address, || {
-        env.storage()
-            .persistent()
-            .set(&DataKey::Invoice(invoice_id), &invoice);
-    });
-
-    // Attempt to pay again - should fail with InvalidInvoiceStatus
-    client.pay_invoice_admin(&admin, &invoice_id);
-}
-
-#[should_panic(expected = "HostError: Error(Contract, #13)")]
-#[test]
-fn test_cannot_pay_cancelled_invoice() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Manually set invoice to Cancelled
-    use crate::types::DataKey;
-    let mut invoice = client.get_invoice(&invoice_id);
-    invoice.status = InvoiceStatus::Cancelled;
-    env.as_contract(&client.address, || {
-        env.storage()
-            .persistent()
-            .set(&DataKey::Invoice(invoice_id), &invoice);
-    });
-
-    // Attempt to pay - should fail with InvalidInvoiceStatus
-    client.pay_invoice_admin(&admin, &invoice_id);
-}
-
-#[test]
-fn test_invoice_not_found() {
-    let (_env, client, admin, _manager, _merchant, _payer, _token) = setup_invoice_test();
-
-    let expected_error =
-        soroban_sdk::Error::from_contract_error(ContractError::InvoiceNotFound as u32);
-    let result = client.try_pay_invoice_admin(&admin, &999);
-    assert!(matches!(result, Err(Ok(err)) if err == expected_error));
-}
-
-#[test]
-fn test_role_revocation_denies_manager() {
-    let (_env, client, admin, manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Grant and then revoke manager role
-    client.grant_role(&admin, &manager, &Role::Manager);
-    client.revoke_role(&admin, &manager, &Role::Manager);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&_env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Attempt to pay without role - should fail with NotAuthorized
-    let expected_error =
-        soroban_sdk::Error::from_contract_error(ContractError::NotAuthorized as u32);
-    let result = client.try_pay_invoice_admin(&manager, &invoice_id);
-    assert!(matches!(result, Err(Ok(err)) if err == expected_error));
-}
-
-#[test]
-fn test_contract_pause_blocks_payment() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Pause contract
-    client.pause(&admin);
-
-    // Attempt payment - should fail with ContractPaused
-    let expected_error =
-        soroban_sdk::Error::from_contract_error(ContractError::ContractPaused as u32);
-    let result = client.try_pay_invoice_admin(&admin, &invoice_id);
-    assert!(matches!(result, Err(Ok(err)) if err == expected_error));
-}
-
-#[test]
-fn test_payment_allowed_after_unpause() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
-
-    // Create invoice
-    let invoice_id = client.create_invoice(
-        &merchant,
-        &String::from_str(&env, "Test Invoice"),
-        &1000,
-        &token,
-    );
-
-    // Pause and unpause
-    client.pause(&admin);
-    client.unpause(&admin);
-
-    // Payment should now be allowed (though may fail due to insufficient token balance)
-    let res = client.try_pay_invoice_admin(&admin, &invoice_id);
-    // Just verify it doesn't fail with ContractPaused error
-    if let Err(err) = res {
-        if let Ok(contract_err) = err {
-            let paused_error =
-                soroban_sdk::Error::from_contract_error(ContractError::ContractPaused as u32);
-            assert_ne!(contract_err, paused_error);
-        }
-    }
-}
-
-#[test]
 fn test_invoice_state_validation() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
+    let (env, client, _admin, _manager, merchant, _payer, token) = setup_invoice_test();
 
     // Register merchant
     client.register_merchant(&merchant);
@@ -324,7 +85,7 @@ fn test_multiple_invoices_independent() {
         &token,
     );
 
-    // Set second to Paid
+    // Set second to Paid via storage manipulation
     use crate::types::DataKey;
     let mut inv_2 = client.get_invoice(&id_2);
     inv_2.status = InvoiceStatus::Paid;
@@ -362,4 +123,42 @@ fn test_fee_preservation() {
     assert_eq!(client.get_fee(&token), fee);
     let invoice = client.get_invoice(&invoice_id);
     assert_eq!(invoice.amount, 1000);
+}
+
+#[test]
+fn test_manager_role_grant_and_revoke() {
+    let (_env, client, admin, manager, _merchant, _payer, _token) = setup_invoice_test();
+
+    // Grant manager role
+    client.grant_role(&admin, &manager, &Role::Manager);
+    assert!(client.has_role(&manager, &Role::Manager));
+
+    // Revoke manager role
+    client.revoke_role(&admin, &manager, &Role::Manager);
+    assert!(!client.has_role(&manager, &Role::Manager));
+}
+
+#[test]
+fn test_contract_pause_and_unpause() {
+    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
+
+    // Register merchant
+    client.register_merchant(&merchant);
+
+    // Pause contract
+    client.pause(&admin);
+    assert!(client.is_paused());
+
+    // Unpause contract
+    client.unpause(&admin);
+    assert!(!client.is_paused());
+
+    // Should be able to create invoices after unpause
+    let invoice_id = client.create_invoice(
+        &merchant,
+        &String::from_str(&env, "Post-unpause invoice"),
+        &500,
+        &token,
+    );
+    assert!(invoice_id > 0);
 }

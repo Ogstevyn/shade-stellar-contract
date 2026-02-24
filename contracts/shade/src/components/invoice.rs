@@ -2,8 +2,12 @@ use crate::components::{access_control, admin, merchant, signature_util};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus, Role};
-use account::account::MerchantAccountClient;
-use soroban_sdk::{panic_with_error, token, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{contractclient, panic_with_error, token, Address, BytesN, Env, String, Vec};
+
+#[contractclient(name = "MerchantAccountRefundClient")]
+pub trait MerchantAccountRefund {
+    fn refund(env: Env, token: Address, amount: i128, to: Address);
+}
 
 pub const MAX_REFUND_DURATION: u64 = 604_800;
 
@@ -60,6 +64,7 @@ pub fn create_invoice(
     new_invoice_id
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_invoice_signed(
     env: &Env,
     caller: &Address,
@@ -171,6 +176,14 @@ pub fn refund_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
+    // Enforce refund window
+    if let Some(date_paid) = invoice.date_paid {
+        let elapsed = env.ledger().timestamp() - date_paid;
+        if elapsed > MAX_REFUND_DURATION {
+            panic_with_error!(env, ContractError::RefundPeriodExpired);
+        }
+    }
+
     let amount_to_refund = invoice.amount - invoice.amount_refunded;
     if amount_to_refund <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
@@ -227,4 +240,217 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
                 }
             }
             if let Some(end_date) = filter.end_date {
-    
+                if invoice.date_created > end_date {
+                    matches = false;
+                }
+            }
+            if matches {
+                invoices.push_back(invoice);
+            }
+        }
+    }
+    invoices
+}
+
+pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
+    let mut invoice = get_invoice(env, invoice_id);
+
+    if invoice.status != InvoiceStatus::Paid && invoice.status != InvoiceStatus::PartiallyRefunded {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    let total_refund = invoice.amount_refunded + amount;
+    if total_refund > invoice.amount {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
+
+    invoice.amount_refunded = total_refund;
+
+    let new_status = if total_refund == invoice.amount {
+        InvoiceStatus::Refunded
+    } else {
+        InvoiceStatus::PartiallyRefunded
+    };
+    invoice.status = new_status;
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    let payer = invoice
+        .payer
+        .clone()
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
+
+    let merchant_account_addr = merchant::get_merchant_account(env, invoice.merchant_id);
+    let refund_client = MerchantAccountRefundClient::new(env, &merchant_account_addr);
+    refund_client.refund(&invoice.token, &amount, &payer);
+
+    if total_refund == invoice.amount {
+        events::publish_invoice_refunded_event(
+            env,
+            invoice_id,
+            payer,
+            invoice.amount,
+            env.ledger().timestamp(),
+        );
+    } else {
+        events::publish_invoice_partially_refunded_event(
+            env,
+            invoice_id,
+            payer,
+            amount,
+            total_refund,
+            env.ledger().timestamp(),
+        );
+    }
+}
+
+pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
+    payer.require_auth();
+
+    let mut invoice = get_invoice(env, invoice_id);
+
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    // Validate that the invoice token is accepted
+    if !admin::is_accepted_token(env, &invoice.token) {
+        panic_with_error!(env, ContractError::TokenNotAccepted);
+    }
+
+    let fee_amount = get_fee_for_invoice(env, &invoice);
+    let merchant_amount = invoice.amount - fee_amount;
+
+    let token_client = token::TokenClient::new(env, &invoice.token);
+    let merchant_account_id = merchant::get_merchant_account(env, invoice.merchant_id);
+
+    // Transfer merchant portion to merchant account
+    token_client.transfer(payer, &merchant_account_id, &merchant_amount);
+
+    // Transfer fee portion to shade contract (if any)
+    if fee_amount > 0 {
+        token_client.transfer(payer, env.current_contract_address(), &fee_amount);
+    }
+
+    invoice.status = InvoiceStatus::Paid;
+    invoice.payer = Some(payer.clone());
+    invoice.date_paid = Some(env.ledger().timestamp());
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    events::publish_invoice_paid_event(
+        env,
+        invoice_id,
+        invoice.merchant_id,
+        payer.clone(),
+        invoice.amount,
+        fee_amount,
+        invoice.token.clone(),
+        env.ledger().timestamp(),
+    );
+
+    fee_amount
+}
+
+pub fn void_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
+    merchant_address.require_auth();
+
+    let mut invoice = get_invoice(env, invoice_id);
+
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    if invoice.merchant_id != merchant_id {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    invoice.status = InvoiceStatus::Cancelled;
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    events::publish_invoice_cancelled_event(
+        env,
+        invoice_id,
+        merchant_address.clone(),
+        env.ledger().timestamp(),
+    );
+}
+
+pub fn amend_invoice(
+    env: &Env,
+    merchant_address: &Address,
+    invoice_id: u64,
+    new_amount: Option<i128>,
+    new_description: Option<String>,
+) {
+    merchant_address.require_auth();
+
+    let mut invoice = get_invoice(env, invoice_id);
+
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    if invoice.merchant_id != merchant_id {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    if invoice.status != InvoiceStatus::Pending {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    let old_amount = invoice.amount;
+
+    if let Some(amount) = new_amount {
+        if amount <= 0 {
+            panic_with_error!(env, ContractError::InvalidAmount);
+        }
+        invoice.amount = amount;
+    }
+
+    if let Some(description) = new_description {
+        invoice.description = description;
+    }
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    events::publish_invoice_amended_event(
+        env,
+        invoice_id,
+        merchant_address.clone(),
+        old_amount,
+        invoice.amount,
+        env.ledger().timestamp(),
+    );
+}
+
+fn get_fee_for_invoice(env: &Env, invoice: &Invoice) -> i128 {
+    let fee: i128 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::TokenFee(invoice.token.clone()))
+        .unwrap_or(0);
+
+    if fee == 0 {
+        return 0;
+    }
+
+    (invoice.amount * fee) / 10_000i128
+}

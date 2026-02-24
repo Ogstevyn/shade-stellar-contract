@@ -1,7 +1,7 @@
 use crate::errors::ContractError;
 use crate::types::DataKey;
-use soroban_sdk::{panic_with_error, Address, Bytes, BytesN, Env, String};
 use soroban_sdk::xdr::ToXdr;
+use soroban_sdk::{panic_with_error, Address, Bytes, BytesN, Env, String};
 
 /// Builds the message that the merchant must have signed.
 fn build_message(

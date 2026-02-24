@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
-use soroban_sdk::testutils::{Address as _, Events as _};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{token, Address, Env, String};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
@@ -142,7 +142,7 @@ fn test_payment_with_maximum_fee() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #15)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_payment_invoice_already_paid() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 
@@ -214,7 +214,8 @@ fn test_payment_token_not_accepted() {
     let unaccepted_token = env.register_stellar_asset_contract_v2(unaccepted_token_admin.clone());
 
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
+    let invoice_id =
+        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -226,7 +227,7 @@ fn test_payment_token_not_accepted() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #20)")]
 fn test_payment_merchant_account_not_set() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 

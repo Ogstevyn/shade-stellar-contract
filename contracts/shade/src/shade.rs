@@ -109,6 +109,7 @@ impl ShadeTrait for Shade {
         invoice_component::create_invoice(&env, &merchant, &description, amount, &token)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn create_invoice_signed(
         env: Env,
         caller: Address,

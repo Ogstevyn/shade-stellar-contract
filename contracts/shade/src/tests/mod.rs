@@ -1,14 +1,15 @@
 pub mod test;
 pub mod test_accepted_tokens;
+pub mod test_access_control;
 pub mod test_admin_payment;
 pub mod test_fees;
-pub mod test_access_control;
 pub mod test_invoice;
+pub mod test_invoice_signed;
+pub mod test_invoice_void;
 pub mod test_merchant;
 pub mod test_merchant_activation;
 pub mod test_merchant_key;
 pub mod test_merchant_verification;
 pub mod test_pausable;
-pub mod test_upgrade;
 pub mod test_payment;
 pub mod test_upgrade;

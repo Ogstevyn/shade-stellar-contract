@@ -18,6 +18,9 @@ pub fn add_accepted_token(env: &Env, admin: &Address, token: &Address) {
             .set(&DataKey::AcceptedTokens, &accepted_tokens);
         events::publish_token_added_event(env, token.clone(), env.ledger().timestamp());
     }
+    reentrancy::exit(env);
+}
+
 pub fn add_accepted_tokens(env: &Env, admin: &Address, tokens: &Vec<Address>) {
     reentrancy::enter(env);
     core::assert_admin(env, admin);

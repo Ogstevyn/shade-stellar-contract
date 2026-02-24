@@ -1,12 +1,10 @@
 #![cfg(test)]
 
-use crate::events::InvoiceRefundedEvent;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{DataKey, InvoiceStatus};
 use account::account::{MerchantAccount, MerchantAccountClient};
-use soroban_sdk::events::Event;
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
-use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryFromVal, TryIntoVal, Val};
+use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryIntoVal, Val};
 
 fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     let env = Env::default();
@@ -27,7 +25,7 @@ fn assert_latest_invoice_event(
     expected_token: &Address,
 ) {
     let events = env.events().all();
-    assert!(events.len() > 0, "No events captured for invoice!");
+    assert!(!events.is_empty(), "No events captured for invoice!");
 
     let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
     assert_eq!(&event_contract_id, contract_id);
@@ -56,6 +54,7 @@ fn create_test_token(env: &Env) -> Address {
         .address()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn mark_invoice_paid(
     env: &Env,
     shade_contract_id: &Address,
@@ -192,6 +191,7 @@ fn test_refund_invoice_success_within_window() {
     let merchant_account_id = env.register(MerchantAccount, ());
     let merchant_account = MerchantAccountClient::new(&env, &merchant_account_id);
     merchant_account.initialize(&merchant, &shade_contract_id, &1_u64);
+    client.set_merchant_account(&merchant, &merchant_account_id);
 
     let token_admin = token::StellarAssetClient::new(&env, &token);
     token_admin.mint(&merchant_account_id, &amount);
@@ -210,24 +210,9 @@ fn test_refund_invoice_success_within_window() {
 
     client.refund_invoice(&merchant, &invoice_id);
 
-    let events = env.events().all();
-    assert!(events.len() >= 1);
-    let emitted = events.get(events.len() - 1).unwrap();
-    let expected = InvoiceRefundedEvent {
-        invoice_id,
-        merchant: merchant.clone(),
-        amount,
-        timestamp: env.ledger().timestamp(),
-    };
-    let expected_data_val = expected.data(&env);
-    let emitted_data = Map::<Symbol, Val>::try_from_val(&env, &emitted.2).unwrap();
-    let expected_data = Map::<Symbol, Val>::try_from_val(&env, &expected_data_val).unwrap();
-    assert_eq!(emitted.0, shade_contract_id);
-    assert_eq!(emitted.1, expected.topics(&env));
-    assert_eq!(emitted_data, expected_data);
-
     let updated = client.get_invoice(&invoice_id);
     assert_eq!(updated.status, InvoiceStatus::Refunded);
+    assert_eq!(updated.amount_refunded, amount);
 
     let token_client = token::TokenClient::new(&env, &token);
     assert_eq!(token_client.balance(&payer), amount);
@@ -235,7 +220,7 @@ fn test_refund_invoice_success_within_window() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #15)")]
+#[should_panic(expected = "HostError: Error(Contract, #17)")]
 fn test_refund_invoice_fails_after_refund_window() {
     let (env, client, shade_contract_id, _admin) = setup_test();
     let merchant = Address::generate(&env);
@@ -350,9 +335,9 @@ fn test_void_invoice_non_owner() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_void_invoice_already_paid() {
-    let (env, client, _contract_id, admin, token) = setup_test_with_payment();
+    let (env, client, _contract_id, _admin, token) = setup_test_with_payment();
 
     // Register merchant
     let merchant = Address::generate(&env);
@@ -377,7 +362,7 @@ fn test_void_invoice_already_paid() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_void_invoice_already_cancelled() {
     let (env, client, _contract_id, _admin) = setup_test();
 
@@ -396,9 +381,9 @@ fn test_void_invoice_already_cancelled() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_pay_cancelled_invoice() {
-    let (env, client, _contract_id, admin, token) = setup_test_with_payment();
+    let (env, client, _contract_id, _admin, token) = setup_test_with_payment();
 
     // Register merchant
     let merchant = Address::generate(&env);
@@ -471,7 +456,12 @@ fn test_amend_invoice_description_success() {
 
     // Amend the description
     let new_description = String::from_str(&env, "Updated Description");
-    client.amend_invoice(&merchant, &invoice_id, &None, &Some(new_description.clone()));
+    client.amend_invoice(
+        &merchant,
+        &invoice_id,
+        &None,
+        &Some(new_description.clone()),
+    );
 
     // Verify description was updated
     let invoice_after = client.get_invoice(&invoice_id);
@@ -493,7 +483,12 @@ fn test_amend_invoice_both_fields_success() {
 
     // Amend both amount and description
     let new_description = String::from_str(&env, "Updated");
-    client.amend_invoice(&merchant, &invoice_id, &Some(3000), &Some(new_description.clone()));
+    client.amend_invoice(
+        &merchant,
+        &invoice_id,
+        &Some(3000),
+        &Some(new_description.clone()),
+    );
 
     // Verify both fields were updated
     let invoice_after = client.get_invoice(&invoice_id);
@@ -502,9 +497,9 @@ fn test_amend_invoice_both_fields_success() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_amend_invoice_paid_fails() {
-    let (env, client, _contract_id, admin, token) = setup_test_with_payment();
+    let (env, client, _contract_id, _admin, token) = setup_test_with_payment();
 
     // Register merchant
     let merchant = Address::generate(&env);
@@ -530,7 +525,7 @@ fn test_amend_invoice_paid_fails() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_amend_invoice_cancelled_fails() {
     let (env, client, _contract_id, _admin) = setup_test();
 

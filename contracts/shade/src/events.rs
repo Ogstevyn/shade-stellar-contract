@@ -316,6 +316,12 @@ pub fn publish_account_restricted_event(
         merchant,
         status,
         caller,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoicePaidEvent {
     pub invoice_id: u64,
     pub merchant_id: u64,
@@ -326,6 +332,7 @@ pub struct InvoicePaidEvent {
     pub timestamp: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_invoice_paid_event(
     env: &Env,
     invoice_id: u64,
@@ -337,16 +344,12 @@ pub fn publish_invoice_paid_event(
     timestamp: u64,
 ) {
     InvoicePaidEvent {
+        invoice_id,
         merchant_id,
         payer,
         amount,
         fee,
         token,
-        invoice_id,
-        payer,
-        amount,
-        fee,
-        merchant_amount,
         timestamp,
     }
     .publish(env);
