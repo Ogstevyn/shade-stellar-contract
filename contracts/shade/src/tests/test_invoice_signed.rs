@@ -20,8 +20,11 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
 }
 
 /// Build the same message as signature_util::build_message
+///
+/// Format: [contract_address, merchant_address, nonce, amount, token_address, description_bytes]
 fn build_test_message(
     env: &Env,
+    contract_id: &Address,
     merchant: &Address,
     description: &String,
     amount: i128,
@@ -29,11 +32,12 @@ fn build_test_message(
     nonce: &BytesN<32>,
 ) -> alloc::vec::Vec<u8> {
     let mut msg = Bytes::new(env);
+    msg.append(&contract_id.clone().to_xdr(env));
     msg.append(&merchant.clone().to_xdr(env));
-    msg.append(&description.clone().to_xdr(env));
+    msg.append(nonce.as_ref());
     msg.append(&Bytes::from_slice(env, &amount.to_be_bytes()));
     msg.append(&token.clone().to_xdr(env));
-    msg.append(nonce.as_ref());
+    msg.append(&description.clone().to_xdr(env));
 
     let mut result = alloc::vec![0u8; msg.len() as usize];
     for i in 0..msg.len() {
@@ -58,6 +62,7 @@ fn generate_keypair() -> TestKeypair {
 
 fn sign_invoice(
     env: &Env,
+    contract_id: &Address,
     keypair: &TestKeypair,
     merchant: &Address,
     description: &String,
@@ -65,7 +70,15 @@ fn sign_invoice(
     token: &Address,
     nonce: &BytesN<32>,
 ) -> BytesN<64> {
-    let message = build_test_message(env, merchant, description, amount, token, nonce);
+    let message = build_test_message(
+        env,
+        contract_id,
+        merchant,
+        description,
+        amount,
+        token,
+        nonce,
+    );
     let sig = keypair.signing_key.sign(&message);
     BytesN::from_array(env, &sig.to_bytes())
 }
@@ -89,7 +102,7 @@ fn create_unique_nonce(env: &Env, seed: u8) -> BytesN<32> {
 /// Test Case 1: Manager Path - Successful Signed Invoice Creation
 #[test]
 fn test_create_invoice_signed_manager_success() {
-    let (env, client, _contract_id, admin) = setup_test();
+    let (env, client, contract_id, admin) = setup_test();
 
     let manager = Address::generate(&env);
     client.grant_role(&admin, &manager, &Role::Manager);
@@ -108,6 +121,7 @@ fn test_create_invoice_signed_manager_success() {
 
     let signature = sign_invoice(
         &env,
+        &contract_id,
         &keypair,
         &merchant,
         &description,
@@ -136,7 +150,7 @@ fn test_create_invoice_signed_manager_success() {
 /// Test Case 2: Admin Path - Successful Signed Invoice Creation
 #[test]
 fn test_create_invoice_signed_admin_success() {
-    let (env, client, _contract_id, admin) = setup_test();
+    let (env, client, contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
@@ -152,6 +166,7 @@ fn test_create_invoice_signed_admin_success() {
 
     let signature = sign_invoice(
         &env,
+        &contract_id,
         &keypair,
         &merchant,
         &description,
@@ -180,7 +195,7 @@ fn test_create_invoice_signed_admin_success() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_create_invoice_signed_guest_unauthorized() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, contract_id, _admin) = setup_test();
 
     let guest = Address::generate(&env);
     let merchant = Address::generate(&env);
@@ -195,6 +210,7 @@ fn test_create_invoice_signed_guest_unauthorized() {
     let nonce = create_nonce(&env);
     let signature = sign_invoice(
         &env,
+        &contract_id,
         &keypair,
         &merchant,
         &description,
@@ -218,7 +234,7 @@ fn test_create_invoice_signed_guest_unauthorized() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_create_invoice_signed_operator_unauthorized() {
-    let (env, client, _contract_id, admin) = setup_test();
+    let (env, client, contract_id, admin) = setup_test();
 
     let operator = Address::generate(&env);
     client.grant_role(&admin, &operator, &Role::Operator);
@@ -235,6 +251,7 @@ fn test_create_invoice_signed_operator_unauthorized() {
     let nonce = create_nonce(&env);
     let signature = sign_invoice(
         &env,
+        &contract_id,
         &keypair,
         &merchant,
         &description,
@@ -352,7 +369,7 @@ fn test_create_invoice_signed_unregistered_merchant() {
 /// Test Case 8: End-to-End Integration - Multiple Invoices via Signed Path
 #[test]
 fn test_create_invoice_signed_multiple_invoices() {
-    let (env, client, _contract_id, admin) = setup_test();
+    let (env, client, contract_id, admin) = setup_test();
 
     let manager = Address::generate(&env);
     client.grant_role(&admin, &manager, &Role::Manager);
@@ -381,6 +398,7 @@ fn test_create_invoice_signed_multiple_invoices() {
     let nonce1 = create_unique_nonce(&env, 1);
     let sig1 = sign_invoice(
         &env,
+        &contract_id,
         &keypair1,
         &merchant1,
         &description,
@@ -401,6 +419,7 @@ fn test_create_invoice_signed_multiple_invoices() {
     let nonce2 = create_unique_nonce(&env, 2);
     let sig2 = sign_invoice(
         &env,
+        &contract_id,
         &keypair2,
         &merchant2,
         &description,
@@ -421,6 +440,7 @@ fn test_create_invoice_signed_multiple_invoices() {
     let nonce3 = create_unique_nonce(&env, 3);
     let sig3 = sign_invoice(
         &env,
+        &contract_id,
         &keypair1,
         &merchant1,
         &description,

@@ -12,4 +12,5 @@ pub mod test_merchant_key;
 pub mod test_merchant_verification;
 pub mod test_pausable;
 pub mod test_payment;
+pub mod test_signatures;
 pub mod test_upgrade;
