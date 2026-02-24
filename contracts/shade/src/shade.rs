@@ -37,6 +37,11 @@ impl ShadeTrait for Shade {
         admin_component::add_accepted_token(&env, &admin, &token);
     }
 
+    fn add_accepted_tokens(env: Env, admin: Address, tokens: Vec<Address>) {
+        pausable_component::assert_not_paused(&env);
+        admin_component::add_accepted_tokens(&env, &admin, &tokens);
+    }
+
     fn remove_accepted_token(env: Env, admin: Address, token: Address) {
         pausable_component::assert_not_paused(&env);
         admin_component::remove_accepted_token(&env, &admin, &token);

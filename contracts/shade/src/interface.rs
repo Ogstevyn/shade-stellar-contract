@@ -6,6 +6,7 @@ pub trait ShadeTrait {
     fn initialize(env: Env, admin: Address);
     fn get_admin(env: Env) -> Address;
     fn add_accepted_token(env: Env, admin: Address, token: Address);
+    fn add_accepted_tokens(env: Env, admin: Address, tokens: Vec<Address>);
     fn remove_accepted_token(env: Env, admin: Address, token: Address);
     fn is_accepted_token(env: Env, token: Address) -> bool;
     fn set_account_wasm_hash(env: Env, admin: Address, wasm_hash: soroban_sdk::BytesN<32>);

@@ -68,6 +68,49 @@ fn test_admin_adds_token_and_emits_event() {
 }
 
 #[test]
+fn test_batch_add_tokens() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(Shade, ());
+    let client = ShadeClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let token_admin = Address::generate(&env);
+    let token1 = env
+        .register_stellar_asset_contract_v2(token_admin.clone())
+        .address();
+    let token2 = env
+        .register_stellar_asset_contract_v2(token_admin.clone())
+        .address();
+    let token3 = env
+        .register_stellar_asset_contract_v2(token_admin.clone())
+        .address();
+
+    let mut tokens = Vec::new(&env);
+    tokens.push_back(token1.clone());
+    tokens.push_back(token2.clone());
+    tokens.push_back(token3.clone());
+
+    client.add_accepted_tokens(&admin, &tokens);
+
+    assert!(client.is_accepted_token(&token1));
+    assert!(client.is_accepted_token(&token2));
+    assert!(client.is_accepted_token(&token3));
+
+    // Verify events (last one should be token3)
+    assert_latest_token_event(
+        &env,
+        &contract_id,
+        "token_added_event",
+        &token3,
+        env.ledger().timestamp(),
+    );
+}
+
+#[test]
 fn test_admin_removes_token_and_emits_event() {
     let env = Env::default();
     env.mock_all_auths();
