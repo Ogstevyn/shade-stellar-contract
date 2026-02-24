@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address};
+use soroban_sdk::{contracttype, Address, BytesN};
 
 #[contracttype]
 pub enum DataKey {
@@ -21,7 +21,7 @@ pub enum DataKey {
     ReentrancyStatus,
     AccountWasmHash,
     Role(Address, Role),
-    MerchantAccount(Address),
+    UsedNonce(Address, BytesN<32>),
 }
 
 #[contracttype]
