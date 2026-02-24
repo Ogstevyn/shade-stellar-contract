@@ -1,6 +1,7 @@
 use crate::errors::ContractError;
-use crate::events::publish_withdrawal_to_event;
 use crate::events::{
+    publish_account_initialized_event, publish_account_verified_event,
+    publish_refund_processed_event, publish_token_added_event, publish_withdrawal_to_event,
     publish_account_initialized_event, publish_account_restricted_event,
     publish_account_verified_event, publish_refund_processed_event, publish_token_added_event,
 };
@@ -162,11 +163,7 @@ impl MerchantAccountTrait for MerchantAccount {
 
     fn withdraw_to(env: Env, token: Address, amount: i128, recipient: Address) {
         // Only the merchant can initiate withdrawals to another account
-        let merchant: Address = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Merchant)
-            .unwrap_or_else(|| panic_with_error!(&env, ContractError::NotInitialized));
+        let merchant = get_manager(&env);
         merchant.require_auth();
 
         let token_client = token::TokenClient::new(&env, &token);
