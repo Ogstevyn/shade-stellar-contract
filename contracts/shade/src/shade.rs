@@ -212,6 +212,11 @@ impl ShadeTrait for Shade {
         invoice_component::pay_invoice(&env, &payer, invoice_id);
     }
 
+    fn pay_invoice_partial(env: Env, payer: Address, invoice_id: u64, amount: i128) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::pay_invoice_partial(&env, &payer, invoice_id, amount);
+    }
+
     fn void_invoice(env: Env, merchant: Address, invoice_id: u64) {
         pausable_component::assert_not_paused(&env);
         invoice_component::void_invoice(&env, &merchant, invoice_id);

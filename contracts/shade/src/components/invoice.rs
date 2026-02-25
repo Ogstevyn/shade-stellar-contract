@@ -46,6 +46,7 @@ pub fn create_invoice(
         payer: None,
         date_created: env.ledger().timestamp(),
         date_paid: None,
+        amount_paid: 0,
         amount_refunded: 0,
     };
     env.storage()
@@ -132,6 +133,7 @@ pub fn create_invoice_signed(
         payer: None,
         date_created: env.ledger().timestamp(),
         date_paid: None,
+        amount_paid: 0,
         amount_refunded: 0,
     };
 
@@ -307,36 +309,64 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
 }
 
 pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
+    let invoice = get_invoice(env, invoice_id);
+    if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+    let remaining_amount = invoice.amount - invoice.amount_paid;
+    if remaining_amount <= 0 {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+    pay_invoice_partial(env, payer, invoice_id, remaining_amount)
+}
+
+pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: i128) -> i128 {
     payer.require_auth();
+
+    if amount <= 0 {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
 
     let mut invoice = get_invoice(env, invoice_id);
 
-    if invoice.status != InvoiceStatus::Pending {
+    if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
 
-    // Validate that the invoice token is accepted
+    if invoice.amount_paid + amount > invoice.amount {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
+
     if !admin::is_accepted_token(env, &invoice.token) {
         panic_with_error!(env, ContractError::TokenNotAccepted);
     }
 
-    let fee_amount = get_fee_for_invoice(env, &invoice);
-    let merchant_amount = invoice.amount - fee_amount;
+    let fee_amount = get_fee_for_amount(env, &invoice.token, amount);
+    let merchant_amount = amount - fee_amount;
 
     let token_client = token::TokenClient::new(env, &invoice.token);
     let merchant_account_id = merchant::get_merchant_account(env, invoice.merchant_id);
 
-    // Transfer merchant portion to merchant account
     token_client.transfer(payer, &merchant_account_id, &merchant_amount);
-
-    // Transfer fee portion to shade contract (if any)
     if fee_amount > 0 {
         token_client.transfer(payer, env.current_contract_address(), &fee_amount);
     }
 
-    invoice.status = InvoiceStatus::Paid;
-    invoice.payer = Some(payer.clone());
-    invoice.date_paid = Some(env.ledger().timestamp());
+    invoice.amount_paid += amount;
+    if let Some(existing_payer) = &invoice.payer {
+        if *existing_payer != *payer {
+            panic_with_error!(env, ContractError::NotAuthorized);
+        }
+    } else {
+        invoice.payer = Some(payer.clone());
+    }
+
+    if invoice.amount_paid == invoice.amount {
+        invoice.status = InvoiceStatus::Paid;
+        invoice.date_paid = Some(env.ledger().timestamp());
+    } else {
+        invoice.status = InvoiceStatus::PartiallyPaid;
+    }
 
     env.storage()
         .persistent()
@@ -347,7 +377,7 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
         invoice_id,
         invoice.merchant_id,
         payer.clone(),
-        invoice.amount,
+        amount,
         fee_amount,
         invoice.token.clone(),
         env.ledger().timestamp(),
@@ -441,16 +471,16 @@ pub fn amend_invoice(
     );
 }
 
-fn get_fee_for_invoice(env: &Env, invoice: &Invoice) -> i128 {
-    let fee: i128 = env
+fn get_fee_for_amount(env: &Env, token: &Address, amount: i128) -> i128 {
+    let fee_bps: i128 = env
         .storage()
         .persistent()
-        .get(&DataKey::TokenFee(invoice.token.clone()))
+        .get(&DataKey::TokenFee(token.clone()))
         .unwrap_or(0);
 
-    if fee == 0 {
+    if fee_bps == 0 {
         return 0;
     }
 
-    (invoice.amount * fee) / 10_000i128
+    (amount * fee_bps) / 10_000i128
 }

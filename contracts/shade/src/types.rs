@@ -57,6 +57,7 @@ pub struct Invoice {
     pub payer: Option<Address>,
     pub date_created: u64,
     pub date_paid: Option<u64>,
+    pub amount_paid: i128,
     pub amount_refunded: i128,
 }
 
@@ -69,6 +70,7 @@ pub enum InvoiceStatus {
     Cancelled = 2,
     Refunded = 3,
     PartiallyRefunded = 4,
+    PartiallyPaid = 5,
 }
 
 #[contracttype]
