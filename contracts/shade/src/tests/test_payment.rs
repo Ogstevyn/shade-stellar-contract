@@ -2,8 +2,8 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
-use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{token, Address, Env, String};
+use soroban_sdk::testutils::{Address as _, Events};
+use soroban_sdk::{token, Address, Env, Map, String, Symbol, Val, TryIntoVal};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -30,6 +30,55 @@ fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Ad
     (env, shade_client, shade_contract_id, admin, token.address())
 }
 
+
+fn assert_latest_paid_event(
+    env: &Env,
+    contract_id: &Address,
+    expected_invoice_id: u64,
+    expected_merchant_id: u64,
+    expected_merchant_account: &Address,
+    expected_payer: &Address,
+    expected_amount: i128,
+    expected_fee: i128,
+    expected_token: &Address,
+) {
+    let events = env.events().all();
+    assert!(!events.is_empty(), "No events captured for payment");
+
+    let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
+    assert_eq!(&event_contract_id, contract_id);
+
+    let data_map: Map<Symbol, Val> = data.try_into_val(env).unwrap();
+
+    let invoice_id_val = data_map.get(Symbol::new(env, "invoice_id")).unwrap();
+    let merchant_id_val = data_map.get(Symbol::new(env, "merchant_id")).unwrap();
+    let merchant_account_val = data_map
+        .get(Symbol::new(env, "merchant_account"))
+        .unwrap();
+    let payer_val = data_map.get(Symbol::new(env, "payer")).unwrap();
+    let amount_val = data_map.get(Symbol::new(env, "amount")).unwrap();
+    let fee_val = data_map.get(Symbol::new(env, "fee")).unwrap();
+    let token_val = data_map.get(Symbol::new(env, "token")).unwrap();
+
+    let invoice_id_in_event: u64 = invoice_id_val.try_into_val(env).unwrap();
+    let merchant_id_in_event: u64 = merchant_id_val.try_into_val(env).unwrap();
+    let merchant_account_in_event: Address = merchant_account_val
+        .try_into_val(env)
+        .unwrap();
+    let payer_in_event: Address = payer_val.try_into_val(env).unwrap();
+    let amount_in_event: i128 = amount_val.try_into_val(env).unwrap();
+    let fee_in_event: i128 = fee_val.try_into_val(env).unwrap();
+    let token_in_event: Address = token_val.try_into_val(env).unwrap();
+
+    assert_eq!(invoice_id_in_event, expected_invoice_id);
+    assert_eq!(merchant_id_in_event, expected_merchant_id);
+    assert_eq!(merchant_account_in_event, expected_merchant_account.clone());
+    assert_eq!(payer_in_event, expected_payer.clone());
+    assert_eq!(amount_in_event, expected_amount);
+    assert_eq!(fee_in_event, expected_fee);
+    assert_eq!(token_in_event, expected_token.clone());
+}
+
 #[test]
 fn test_successful_payment_with_fee() {
     let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
@@ -54,6 +103,19 @@ fn test_successful_payment_with_fee() {
     // Customer pays invoice
     shade_client.pay_invoice(&customer, &invoice_id);
 
+    // event assertion (merchant_id should be 1 for first merchant)
+    assert_latest_paid_event(
+        &env,
+        &shade_contract_id,
+        invoice_id,
+        1,
+        &merchant_account,
+        &customer,
+        1000,
+        50,
+        &token,
+    );
+
     // Verify balances
     let token_balance_client = token::TokenClient::new(&env, &token);
     let shade_balance = token_balance_client.balance(&shade_contract_id);
@@ -65,7 +127,7 @@ fn test_successful_payment_with_fee() {
     // Verify invoice status
     let invoice = shade_client.get_invoice(&invoice_id);
     assert_eq!(invoice.status, InvoiceStatus::Paid);
-    assert_eq!(invoice.payer, Some(customer));
+    assert_eq!(invoice.payer, Some(customer.clone()));
     assert!(invoice.date_paid.is_some());
 }
 

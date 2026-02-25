@@ -376,6 +376,7 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
         env,
         invoice_id,
         invoice.merchant_id,
+        merchant_account_id.clone(),
         payer.clone(),
         amount,
         fee_amount,

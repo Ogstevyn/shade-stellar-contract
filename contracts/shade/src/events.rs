@@ -325,6 +325,7 @@ pub fn publish_account_restricted_event(
 pub struct InvoicePaidEvent {
     pub invoice_id: u64,
     pub merchant_id: u64,
+    pub merchant_account: Address,
     pub payer: Address,
     pub amount: i128,
     pub fee: i128,
@@ -337,6 +338,7 @@ pub fn publish_invoice_paid_event(
     env: &Env,
     invoice_id: u64,
     merchant_id: u64,
+    merchant_account: Address,
     payer: Address,
     amount: i128,
     fee: i128,
@@ -346,6 +348,7 @@ pub fn publish_invoice_paid_event(
     InvoicePaidEvent {
         invoice_id,
         merchant_id,
+        merchant_account,
         payer,
         amount,
         fee,
