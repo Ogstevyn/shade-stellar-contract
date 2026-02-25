@@ -402,3 +402,24 @@ pub fn publish_invoice_amended_event(
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct NonceInvalidatedEvent {
+    pub merchant: Address,
+    pub nonce: BytesN<32>,
+    pub timestamp: u64,
+}
+
+pub fn publish_nonce_invalidated_event(
+    env: &Env,
+    merchant: Address,
+    nonce: BytesN<32>,
+    timestamp: u64,
+) {
+    NonceInvalidatedEvent {
+        merchant,
+        nonce,
+        timestamp,
+    }
+    .publish(env);
+}
