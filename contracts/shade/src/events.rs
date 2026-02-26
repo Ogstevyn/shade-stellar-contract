@@ -1,5 +1,7 @@
 use soroban_sdk::{contractevent, Address, BytesN, Env};
 
+// ── Existing events ───────────────────────────────────────────────────────────
+
 #[contractevent]
 pub struct InitalizedEvent {
     pub admin: Address,
@@ -316,12 +318,19 @@ pub fn publish_account_restricted_event(
         merchant,
         status,
         caller,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoicePaidEvent {
     pub invoice_id: u64,
     pub merchant_id: u64,
     pub payer: Address,
     pub amount: i128,
     pub fee: i128,
+    pub merchant_amount: i128,
     pub token: Address,
     pub timestamp: u64,
 }
@@ -333,20 +342,18 @@ pub fn publish_invoice_paid_event(
     payer: Address,
     amount: i128,
     fee: i128,
+    merchant_amount: i128,
     token: Address,
     timestamp: u64,
 ) {
     InvoicePaidEvent {
+        invoice_id,
         merchant_id,
         payer,
         amount,
         fee,
-        token,
-        invoice_id,
-        payer,
-        amount,
-        fee,
         merchant_amount,
+        token,
         timestamp,
     }
     .publish(env);
@@ -395,6 +402,119 @@ pub fn publish_invoice_amended_event(
         merchant,
         old_amount,
         new_amount,
+        timestamp,
+    }
+    .publish(env);
+}
+
+// ── Subscription events ───────────────────────────────────────────────────────
+
+#[contractevent]
+pub struct SubscriptionPlanCreatedEvent {
+    pub plan_id: u64,
+    pub merchant: Address,
+    pub token: Address,
+    pub amount: i128,
+    pub interval: u64,
+    pub timestamp: u64,
+}
+
+pub fn publish_subscription_plan_created_event(
+    env: &Env,
+    plan_id: u64,
+    merchant: Address,
+    token: Address,
+    amount: i128,
+    interval: u64,
+    timestamp: u64,
+) {
+    SubscriptionPlanCreatedEvent {
+        plan_id,
+        merchant,
+        token,
+        amount,
+        interval,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct SubscribedEvent {
+    pub subscription_id: u64,
+    pub plan_id: u64,
+    pub customer: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_subscribed_event(
+    env: &Env,
+    subscription_id: u64,
+    plan_id: u64,
+    customer: Address,
+    timestamp: u64,
+) {
+    SubscribedEvent {
+        subscription_id,
+        plan_id,
+        customer,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct SubscriptionChargedEvent {
+    pub subscription_id: u64,
+    pub plan_id: u64,
+    pub customer: Address,
+    pub merchant: Address,
+    pub amount: i128,
+    pub fee: i128,
+    pub token: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_subscription_charged_event(
+    env: &Env,
+    subscription_id: u64,
+    plan_id: u64,
+    customer: Address,
+    merchant: Address,
+    amount: i128,
+    fee: i128,
+    token: Address,
+    timestamp: u64,
+) {
+    SubscriptionChargedEvent {
+        subscription_id,
+        plan_id,
+        customer,
+        merchant,
+        amount,
+        fee,
+        token,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct SubscriptionCancelledEvent {
+    pub subscription_id: u64,
+    pub caller: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_subscription_cancelled_event(
+    env: &Env,
+    subscription_id: u64,
+    caller: Address,
+    timestamp: u64,
+) {
+    SubscriptionCancelledEvent {
+        subscription_id,
+        caller,
         timestamp,
     }
     .publish(env);

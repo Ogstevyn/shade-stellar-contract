@@ -1,4 +1,4 @@
-use crate::types::{Invoice, InvoiceFilter, Merchant, MerchantFilter, Role};
+use crate::types::{Invoice, InvoiceFilter, Merchant, MerchantFilter, Role, Subscription, SubscriptionPlan};
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
 #[contracttrait]
@@ -67,4 +67,36 @@ pub trait ShadeTrait {
         new_amount: Option<i128>,
         new_description: Option<String>,
     );
+
+    // ── Subscription engine ───────────────────────────────────────────────────
+
+    /// Create a recurring billing plan.
+    /// Only `merchant` can call this (requires auth). Returns new plan ID.
+    fn create_subscription_plan(
+        env: Env,
+        merchant: Address,
+        token: Address,
+        amount: i128,
+        interval: u64,
+    ) -> u64;
+
+    /// Fetch a plan by ID.
+    fn get_subscription_plan(env: Env, plan_id: u64) -> SubscriptionPlan;
+
+    /// Subscribe a customer to a plan.
+    /// The customer must have already called `token.approve` to grant the Shade
+    /// contract sufficient allowance for recurring charges.
+    /// Returns the new subscription ID.
+    fn subscribe(env: Env, customer: Address, plan_id: u64) -> u64;
+
+    /// Fetch a subscription by ID.
+    fn get_subscription(env: Env, subscription_id: u64) -> Subscription;
+
+    /// Trigger a charge for a subscription.
+    /// Callable by anyone (merchant or automated bot).
+    /// Panics if the billing interval has not yet elapsed or subscription is not active.
+    fn charge_subscription(env: Env, subscription_id: u64);
+
+    /// Cancel a subscription. Either the customer or the merchant may call this.
+    fn cancel_subscription(env: Env, caller: Address, subscription_id: u64);
 }

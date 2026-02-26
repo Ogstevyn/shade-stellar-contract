@@ -22,6 +22,11 @@ pub enum DataKey {
     AccountWasmHash,
     Role(Address, Role),
     UsedNonce(Address, BytesN<32>),
+    // --- Subscription engine ---
+    SubscriptionPlan(u64),
+    Subscription(u64),
+    PlanCount,
+    SubscriptionCount,
 }
 
 #[contracttype]
@@ -91,4 +96,49 @@ pub enum Role {
     Admin,
     Manager,
     Operator,
+}
+
+// ── Subscription engine ───────────────────────────────────────────────────────
+
+/// A recurring billing plan created by a merchant.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubscriptionPlan {
+    /// Unique plan ID.
+    pub id: u64,
+    /// The merchant address that owns this plan.
+    pub merchant: Address,
+    /// The token used for billing.
+    pub token: Address,
+    /// Amount charged per interval (in token base units).
+    pub amount: i128,
+    /// Billing interval in seconds (e.g. 2_592_000 = 30 days).
+    pub interval: u64,
+    /// Whether this plan accepts new subscribers.
+    pub active: bool,
+}
+
+/// A customer's subscription to a plan.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Subscription {
+    /// Unique subscription ID.
+    pub id: u64,
+    /// ID of the plan this subscription belongs to.
+    pub plan_id: u64,
+    /// The subscribing customer address.
+    pub customer: Address,
+    /// Ledger timestamp of the last successful charge.
+    /// Initialised to 0 so the first charge is available immediately.
+    pub last_charge_date: u64,
+    /// Current lifecycle status.
+    pub status: SubscriptionStatus,
+}
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum SubscriptionStatus {
+    Active    = 0,
+    Cancelled = 1,
 }
