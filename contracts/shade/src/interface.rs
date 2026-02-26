@@ -28,6 +28,7 @@ pub trait ShadeTrait {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
     ) -> u64;
     #[allow(clippy::too_many_arguments)]
     fn create_invoice_signed(
@@ -71,6 +72,8 @@ pub trait ShadeTrait {
         new_amount: Option<i128>,
         new_description: Option<String>,
     );
+    fn propose_admin_transfer(env: Env, admin: Address, new_admin: Address);
+    fn accept_admin_transfer(env: Env, new_admin: Address);
 
     // Subscription methods
     fn create_plan(

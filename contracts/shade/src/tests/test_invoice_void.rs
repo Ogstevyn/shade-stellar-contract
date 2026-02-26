@@ -29,7 +29,7 @@ fn test_void_invoice_success() {
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Test Invoice");
     let amount: i128 = 1000;
-    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
 
     // Verify invoice is Pending before voiding
     let invoice_before = client.get_invoice(&invoice_id);
@@ -56,7 +56,7 @@ fn test_void_invoice_unauthorized_random_address() {
 
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Try to void with random address (should panic with NotAuthorized)
     let random_address = Address::generate(&env);
@@ -79,7 +79,7 @@ fn test_void_invoice_unauthorized_different_merchant() {
 
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = client.create_invoice(&merchant1, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant1, &description, &1000, &token, &None);
 
     // Try to void with different merchant (should panic with NotAuthorized)
     client.void_invoice(&merchant2, &invoice_id);
@@ -116,7 +116,7 @@ fn test_void_invoice_already_paid() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Pay the invoice
     let customer = Address::generate(&env);
@@ -159,7 +159,7 @@ fn test_pay_voided_invoice() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Void the invoice
     client.void_invoice(&merchant, &invoice_id);
@@ -184,7 +184,7 @@ fn test_void_invoice_already_cancelled() {
 
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Void the invoice once
     client.void_invoice(&merchant, &invoice_id);
@@ -238,7 +238,7 @@ fn test_void_refunded_invoice() {
     client.set_merchant_account(&merchant, &merchant_account_id);
 
     let description = String::from_str(&env, "Refundable Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     let customer = Address::generate(&env);
     let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
@@ -264,9 +264,9 @@ fn test_void_invoice_state_isolation() {
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Test Invoice");
 
-    let invoice_id_1 = client.create_invoice(&merchant, &description, &1000, &token);
-    let invoice_id_2 = client.create_invoice(&merchant, &description, &2000, &token);
-    let invoice_id_3 = client.create_invoice(&merchant, &description, &3000, &token);
+    let invoice_id_1 = client.create_invoice(&merchant, &description, &1000, &token, &None);
+    let invoice_id_2 = client.create_invoice(&merchant, &description, &2000, &token, &None);
+    let invoice_id_3 = client.create_invoice(&merchant, &description, &3000, &token, &None);
 
     // Void only the second invoice
     client.void_invoice(&merchant, &invoice_id_2);

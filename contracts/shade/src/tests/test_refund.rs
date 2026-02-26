@@ -55,7 +55,7 @@ fn setup_paid_invoice(pay_timestamp: u64) -> RefundTestContext<'static> {
     // Create invoice
     let amount = 1_000_i128;
     let description = String::from_str(&env, "Refund Test Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
 
     // Mint tokens to the payer and pay the invoice
     let payer = Address::generate(&env);
@@ -223,7 +223,7 @@ fn test_refund_pending_invoice_fails() {
 
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Never Paid");
-    let invoice_id = client.create_invoice(&merchant, &description, &500, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &500, &token, &None);
 
     // Invoice is Pending – refund should fail
     client.refund_invoice(&merchant, &invoice_id);
@@ -250,7 +250,7 @@ fn test_refund_cancelled_invoice_fails() {
 
     let token = Address::generate(&env);
     let description = String::from_str(&env, "Cancel Me");
-    let invoice_id = client.create_invoice(&merchant, &description, &500, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &500, &token, &None);
 
     client.void_invoice(&merchant, &invoice_id);
 
@@ -336,7 +336,7 @@ fn test_partial_refund_with_fee() {
 
     let amount = 1_000_i128;
     let description = String::from_str(&env, "Fee Refund");
-    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token);
+    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
 
     let payer = Address::generate(&env);
     let token_mint = token::StellarAssetClient::new(&env, &token);

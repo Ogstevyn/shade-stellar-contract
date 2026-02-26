@@ -107,6 +107,31 @@ pub fn get_fee(env: &Env, token: &Address) -> i128 {
         .unwrap_or(0)
 }
 
+pub fn propose_admin_transfer(env: &Env, admin: &Address, new_admin: &Address) {
+    core::assert_admin(env, admin);
+    env.storage()
+        .persistent()
+        .set(&DataKey::PendingAdmin, new_admin);
+}
+
+pub fn accept_admin_transfer(env: &Env, new_admin: &Address) {
+    new_admin.require_auth();
+    let pending: Address = env
+        .storage()
+        .persistent()
+        .get(&DataKey::PendingAdmin)
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    if *new_admin != pending {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Admin, new_admin);
+    env.storage().persistent().remove(&DataKey::PendingAdmin);
+}
+
 fn get_accepted_tokens(env: &Env) -> Vec<Address> {
     env.storage()
         .persistent()
