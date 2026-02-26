@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use soroban_sdk::testutils::{Address as _, Events};
-use soroban_sdk::{token, Address, Env, Map, String, Symbol, Val, TryIntoVal};
+use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryIntoVal, Val};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -30,7 +30,6 @@ fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Ad
     (env, shade_client, shade_contract_id, admin, token.address())
 }
 
-
 fn assert_latest_paid_event(
     env: &Env,
     contract_id: &Address,
@@ -52,9 +51,7 @@ fn assert_latest_paid_event(
 
     let invoice_id_val = data_map.get(Symbol::new(env, "invoice_id")).unwrap();
     let merchant_id_val = data_map.get(Symbol::new(env, "merchant_id")).unwrap();
-    let merchant_account_val = data_map
-        .get(Symbol::new(env, "merchant_account"))
-        .unwrap();
+    let merchant_account_val = data_map.get(Symbol::new(env, "merchant_account")).unwrap();
     let payer_val = data_map.get(Symbol::new(env, "payer")).unwrap();
     let amount_val = data_map.get(Symbol::new(env, "amount")).unwrap();
     let fee_val = data_map.get(Symbol::new(env, "fee")).unwrap();
@@ -62,9 +59,7 @@ fn assert_latest_paid_event(
 
     let invoice_id_in_event: u64 = invoice_id_val.try_into_val(env).unwrap();
     let merchant_id_in_event: u64 = merchant_id_val.try_into_val(env).unwrap();
-    let merchant_account_in_event: Address = merchant_account_val
-        .try_into_val(env)
-        .unwrap();
+    let merchant_account_in_event: Address = merchant_account_val.try_into_val(env).unwrap();
     let payer_in_event: Address = payer_val.try_into_val(env).unwrap();
     let amount_in_event: i128 = amount_val.try_into_val(env).unwrap();
     let fee_in_event: i128 = fee_val.try_into_val(env).unwrap();
