@@ -9,6 +9,7 @@ pub struct InitalizedEvent {
 pub fn publish_initialized_event(env: &Env, admin: Address, timestamp: u64) {
     InitalizedEvent { admin, timestamp }.publish(env);
 }
+// no new changes to add
 
 #[contractevent]
 pub struct TokenAddedEvent {
