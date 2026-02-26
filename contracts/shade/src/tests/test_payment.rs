@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
-use soroban_sdk::testutils::Address as _;
+use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{token, Address, Env, String};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
@@ -44,7 +44,7 @@ fn test_successful_payment_with_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -86,7 +86,7 @@ fn test_payment_with_zero_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -122,7 +122,7 @@ fn test_payment_with_maximum_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -142,6 +142,30 @@ fn test_payment_with_maximum_fee() {
 }
 
 #[test]
+#[should_panic(expected = "HostError: Error(Contract, #27)")]
+fn test_payment_rejects_expired_invoice() {
+    let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let description = String::from_str(&env, "Expired Invoice");
+    let expires_at = 1000_u64;
+    let invoice_id =
+        shade_client.create_invoice(&merchant, &description, &1000, &token, &Some(expires_at));
+
+    let customer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    env.ledger().set_timestamp(expires_at);
+    shade_client.pay_invoice(&customer, &invoice_id);
+}
+
+#[test]
 #[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_payment_invoice_already_paid() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
@@ -156,7 +180,7 @@ fn test_payment_invoice_already_paid() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -185,7 +209,7 @@ fn test_payment_insufficient_funds() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer with insufficient balance (only 500)
     let customer = Address::generate(&env);
@@ -215,7 +239,7 @@ fn test_payment_token_not_accepted() {
 
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id =
-        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
+        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address(), &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -239,7 +263,7 @@ fn test_payment_merchant_account_not_set() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -264,7 +288,7 @@ fn test_payment_payer_authorization() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -293,7 +317,7 @@ fn test_payment_updates_invoice_timestamps() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Get invoice before payment
     let invoice_before = shade_client.get_invoice(&invoice_id);
@@ -330,7 +354,7 @@ fn test_fee_calculation_accuracy() {
 
     // Create invoice for 10000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &10000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &10000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -359,7 +383,7 @@ fn test_partial_payment_two_equal_steps_reaches_paid() {
     shade_client.set_merchant_account(&merchant, &merchant_account);
 
     let description = String::from_str(&env, "Partial Payment Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     let customer = Address::generate(&env);
     let token_client = token::StellarAssetClient::new(&env, &token);
@@ -395,7 +419,7 @@ fn test_partial_payment_collects_fees_proportionally_each_step() {
     shade_client.set_merchant_account(&merchant, &merchant_account);
 
     let description = String::from_str(&env, "Proportional Fee Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     let customer = Address::generate(&env);
     let token_client = token::StellarAssetClient::new(&env, &token);
@@ -422,7 +446,7 @@ fn test_partial_payment_cannot_exceed_requested_amount() {
     shade_client.set_merchant_account(&merchant, &merchant_account);
 
     let description = String::from_str(&env, "Overpay Guard Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     let customer = Address::generate(&env);
     let token_client = token::StellarAssetClient::new(&env, &token);

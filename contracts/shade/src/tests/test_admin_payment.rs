@@ -55,6 +55,7 @@ fn test_invoice_state_validation() {
         &String::from_str(&env, "Test Invoice"),
         &1000,
         &token,
+        &None,
     );
 
     // Verify initial state
@@ -77,12 +78,14 @@ fn test_multiple_invoices_independent() {
         &String::from_str(&env, "Invoice 1"),
         &1000,
         &token,
+        &None,
     );
     let id_2 = client.create_invoice(
         &merchant,
         &String::from_str(&env, "Invoice 2"),
         &2000,
         &token,
+        &None,
     );
 
     // Set second to Paid via storage manipulation
@@ -117,6 +120,7 @@ fn test_fee_preservation() {
         &String::from_str(&env, "Test Invoice"),
         &1000,
         &token,
+        &None,
     );
 
     // Verify fee and invoice data
@@ -159,6 +163,7 @@ fn test_contract_pause_and_unpause() {
         &String::from_str(&env, "Post-unpause invoice"),
         &500,
         &token,
+        &None,
     );
     assert!(invoice_id > 0);
 }

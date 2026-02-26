@@ -107,9 +107,17 @@ impl ShadeTrait for Shade {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        invoice_component::create_invoice(&env, &merchant, &description, amount, &token)
+        invoice_component::create_invoice(
+            &env,
+            &merchant,
+            &description,
+            amount,
+            &token,
+            expires_at,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -231,6 +239,14 @@ impl ShadeTrait for Shade {
     ) {
         pausable_component::assert_not_paused(&env);
         invoice_component::amend_invoice(&env, &merchant, invoice_id, new_amount, new_description);
+    }
+
+    fn propose_admin_transfer(env: Env, admin: Address, new_admin: Address) {
+        admin_component::propose_admin_transfer(&env, &admin, &new_admin);
+    }
+
+    fn accept_admin_transfer(env: Env, new_admin: Address) {
+        admin_component::accept_admin_transfer(&env, &new_admin);
     }
 
     // ---- Subscription Engine ----

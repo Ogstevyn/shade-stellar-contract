@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, Address, BytesN};
 #[contracttype]
 pub enum DataKey {
     Admin,
+    PendingAdmin,
     Paused,
     FeeInBasisPoints(Address),
     FeeAmount(Address),
@@ -59,6 +60,7 @@ pub struct Invoice {
     pub date_paid: Option<u64>,
     pub amount_paid: i128,
     pub amount_refunded: i128,
+    pub expires_at: Option<u64>,
 }
 
 #[contracttype]

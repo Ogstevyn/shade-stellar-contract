@@ -17,6 +17,7 @@ pub fn create_invoice(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: Option<u64>,
 ) -> u64 {
     merchant_address.require_auth();
     if amount <= 0 {
@@ -48,6 +49,7 @@ pub fn create_invoice(
         date_paid: None,
         amount_paid: 0,
         amount_refunded: 0,
+        expires_at,
     };
     env.storage()
         .persistent()
@@ -135,6 +137,7 @@ pub fn create_invoice_signed(
         date_paid: None,
         amount_paid: 0,
         amount_refunded: 0,
+        expires_at: None,
     };
 
     env.storage()
@@ -339,6 +342,12 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
     }
 
     let mut invoice = get_invoice(env, invoice_id);
+
+    if let Some(expires_at) = invoice.expires_at {
+        if env.ledger().timestamp() >= expires_at {
+            panic_with_error!(env, ContractError::InvoiceExpired);
+        }
+    }
 
     if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);

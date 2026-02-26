@@ -41,6 +41,7 @@ fn setup_paid_invoice(
         &String::from_str(env, "Partial refund test"),
         &amount,
         token,
+        &None,
     );
 
     let merchant_account_id = env.register(MerchantAccount, ());
