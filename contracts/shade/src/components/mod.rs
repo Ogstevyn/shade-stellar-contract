@@ -7,4 +7,5 @@ pub mod merchant;
 pub mod pausable;
 pub mod reentrancy;
 pub mod signature_util;
+pub mod subscription;
 pub mod upgrade;

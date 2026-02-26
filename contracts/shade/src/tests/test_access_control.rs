@@ -118,7 +118,7 @@ fn test_events() {
     let first_topic = Symbol::from_val(&env, &last_event.1.get(0).unwrap());
     assert_eq!(first_topic, Symbol::new(&env, "role_granted_event"));
 
-    assert!(events.len() > 0);
+    assert!(!events.is_empty());
 
     client.revoke_role(&admin, &user, &Role::Manager);
 

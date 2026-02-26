@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, Address, BytesN};
 #[contracttype]
 pub enum DataKey {
     Admin,
+    PendingAdmin,
     Paused,
     FeeInBasisPoints(Address),
     FeeAmount(Address),
@@ -22,6 +23,10 @@ pub enum DataKey {
     AccountWasmHash,
     Role(Address, Role),
     UsedNonce(Address, BytesN<32>),
+    Plan(u64),
+    PlanCount,
+    Subscription(u64),
+    SubscriptionCount,
 }
 
 #[contracttype]
@@ -53,7 +58,9 @@ pub struct Invoice {
     pub payer: Option<Address>,
     pub date_created: u64,
     pub date_paid: Option<u64>,
+    pub amount_paid: i128,
     pub amount_refunded: i128,
+    pub expires_at: Option<u64>,
 }
 
 #[contracttype]
@@ -65,6 +72,7 @@ pub enum InvoiceStatus {
     Cancelled = 2,
     Refunded = 3,
     PartiallyRefunded = 4,
+    PartiallyPaid = 5,
 }
 
 #[contracttype]
@@ -91,4 +99,36 @@ pub enum Role {
     Admin,
     Manager,
     Operator,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubscriptionPlan {
+    pub id: u64,
+    pub merchant_id: u64,
+    pub description: soroban_sdk::String,
+    pub amount: i128,
+    pub token: Address,
+    pub interval: u64,
+    pub active: bool,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Subscription {
+    pub id: u64,
+    pub plan_id: u64,
+    pub customer: Address,
+    pub merchant_id: u64,
+    pub status: SubscriptionStatus,
+    pub date_created: u64,
+    pub last_charged: u64,
+}
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum SubscriptionStatus {
+    Active = 0,
+    Cancelled = 1,
 }

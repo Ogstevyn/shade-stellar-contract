@@ -1,13 +1,4 @@
 pub mod test;
-pub mod test_accepted_tokens;
-pub mod test_fees;
-pub mod test_invoice;
-pub mod test_invoice_signed;  // <-- add this
-pub mod test_merchant;
-pub mod test_merchant_key;
-pub mod test_merchant_verification;
-pub mod test_pausable;
-pub mod test_upgrade;
 pub mod test_restriction;
 pub mod test_token_balance;
 pub mod test_withdrawal;

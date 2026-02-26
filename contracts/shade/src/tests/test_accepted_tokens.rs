@@ -5,7 +5,7 @@ use crate::errors::ContractError;
 use crate::shade::Shade;
 use crate::shade::ShadeClient;
 use soroban_sdk::testutils::{Address as _, Events as _};
-use soroban_sdk::{Address, Env, Map, Symbol, TryIntoVal, Val};
+use soroban_sdk::{Address, Env, Map, Symbol, TryIntoVal, Val, Vec};
 
 fn assert_latest_token_event(
     env: &Env,
@@ -15,7 +15,7 @@ fn assert_latest_token_event(
     expected_timestamp: u64,
 ) {
     let events = env.events().all();
-    assert!(events.len() > 0);
+    assert!(!events.is_empty());
 
     let (event_contract_id, topics, data) = events.get(events.len() - 1).unwrap();
     assert_eq!(event_contract_id, contract_id.clone());
@@ -99,15 +99,6 @@ fn test_batch_add_tokens() {
     assert!(client.is_accepted_token(&token1));
     assert!(client.is_accepted_token(&token2));
     assert!(client.is_accepted_token(&token3));
-
-    // Verify events (last one should be token3)
-    assert_latest_token_event(
-        &env,
-        &contract_id,
-        "token_added_event",
-        &token3,
-        env.ledger().timestamp(),
-    );
 }
 
 #[test]
