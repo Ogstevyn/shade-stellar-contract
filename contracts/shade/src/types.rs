@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, Address, BytesN};
 #[contracttype]
 pub enum DataKey {
     Admin,
+    PendingAdmin,
     Paused,
     FeeInBasisPoints(Address),
     FeeAmount(Address),
@@ -58,7 +59,9 @@ pub struct Invoice {
     pub payer: Option<Address>,
     pub date_created: u64,
     pub date_paid: Option<u64>,
+    pub amount_paid: i128,
     pub amount_refunded: i128,
+    pub expires_at: Option<u64>,
 }
 
 #[contracttype]
@@ -70,6 +73,7 @@ pub enum InvoiceStatus {
     Cancelled = 2,
     Refunded = 3,
     PartiallyRefunded = 4,
+    PartiallyPaid = 5,
 }
 
 #[contracttype]
@@ -100,45 +104,45 @@ pub enum Role {
 
 // ── Subscription engine ───────────────────────────────────────────────────────
 
-/// A recurring billing plan created by a merchant.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SubscriptionPlan {
-    /// Unique plan ID.
     pub id: u64,
-    /// The merchant address that owns this plan.
+    /// Numeric merchant ID — used to look up the merchant's account contract.
+    pub merchant_id: u64,
+    /// The merchant's wallet address — needed for event emission and auth checks.
     pub merchant: Address,
-    /// The token used for billing.
+    /// Human-readable description of the plan.
+    pub description: soroban_sdk::String,
+    /// Token used for billing.
     pub token: Address,
     /// Amount charged per interval (in token base units).
     pub amount: i128,
     /// Billing interval in seconds (e.g. 2_592_000 = 30 days).
     pub interval: u64,
-    /// Whether this plan accepts new subscribers.
+    /// Whether this plan is accepting new subscribers.
     pub active: bool,
 }
 
-/// A customer's subscription to a plan.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Subscription {
-    /// Unique subscription ID.
     pub id: u64,
-    /// ID of the plan this subscription belongs to.
     pub plan_id: u64,
-    /// The subscribing customer address.
     pub customer: Address,
-    /// Ledger timestamp of the last successful charge.
-    /// Initialised to 0 so the first charge is available immediately.
-    pub last_charge_date: u64,
-    /// Current lifecycle status.
+    /// Copied from the plan for quick access during auth checks.
+    pub merchant_id: u64,
     pub status: SubscriptionStatus,
+    pub date_created: u64,
+    /// Ledger timestamp of the last successful charge.
+    /// Starts at 0 so the first charge is available immediately.
+    pub last_charged: u64,
 }
 
 #[contracttype]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum SubscriptionStatus {
-    Active    = 0,
+    Active = 0,
     Cancelled = 1,
 }

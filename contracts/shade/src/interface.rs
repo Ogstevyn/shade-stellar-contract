@@ -1,4 +1,6 @@
-use crate::types::{Invoice, InvoiceFilter, Merchant, MerchantFilter, Role, Subscription, SubscriptionPlan};
+use crate::types::{
+    Invoice, InvoiceFilter, Merchant, MerchantFilter, Role, Subscription, SubscriptionPlan,
+};
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
 #[contracttrait]
@@ -26,7 +28,9 @@ pub trait ShadeTrait {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
     ) -> u64;
+    #[allow(clippy::too_many_arguments)]
     fn create_invoice_signed(
         env: Env,
         caller: Address,
@@ -59,6 +63,7 @@ pub trait ShadeTrait {
     fn set_merchant_account(env: Env, merchant: Address, account: Address);
     fn get_merchant_account(env: Env, merchant_id: u64) -> Address;
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64);
+    fn pay_invoice_partial(env: Env, payer: Address, invoice_id: u64, amount: i128);
     fn void_invoice(env: Env, merchant: Address, invoice_id: u64);
     fn amend_invoice(
         env: Env,
@@ -68,6 +73,14 @@ pub trait ShadeTrait {
         new_description: Option<String>,
     );
 
+    // ── Admin transfer (two-step handover) ───────────────────────────────────
+
+    /// Step 1: Current admin proposes a new admin address.
+    fn propose_admin_transfer(env: Env, admin: Address, new_admin: Address);
+
+    /// Step 2: Proposed new admin accepts and takes ownership.
+    fn accept_admin_transfer(env: Env, new_admin: Address);
+
     // ── Subscription engine ───────────────────────────────────────────────────
 
     /// Create a recurring billing plan.
@@ -75,6 +88,7 @@ pub trait ShadeTrait {
     fn create_subscription_plan(
         env: Env,
         merchant: Address,
+        description: String,
         token: Address,
         amount: i128,
         interval: u64,

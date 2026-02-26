@@ -239,10 +239,16 @@ pub fn restrict_merchant_account(
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
+
     let account_address: Address = env
         .storage()
         .persistent()
-        .get(&DataKey::MerchantAccount(merchant_address.clone()))
+        .get(&DataKey::MerchantAccount(merchant_id))
         .unwrap_or_else(|| merchant_address.clone());
 
     let client = MerchantAccountClient::new(env, &account_address);
@@ -255,6 +261,8 @@ pub fn restrict_merchant_account(
         caller.clone(),
         env.ledger().timestamp(),
     );
+}
+
 pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
     merchant.require_auth();
 

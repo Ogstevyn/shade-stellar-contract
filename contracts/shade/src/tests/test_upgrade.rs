@@ -13,7 +13,7 @@ fn assert_latest_upgrade_event(
     expected_timestamp: u64,
 ) {
     let events = env.events().all();
-    assert!(events.len() > 0);
+    assert!(!events.is_empty());
 
     let (event_contract_id, topics, data) = events.get(events.len() - 1).unwrap();
     assert_eq!(event_contract_id, contract_id.clone());
