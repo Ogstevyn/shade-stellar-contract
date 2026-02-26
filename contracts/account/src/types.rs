@@ -8,7 +8,6 @@ pub enum DataKey {
     Restricted,
     AccountInfo,
     TrackedTokens,
-    Restricted,
 }
 
 #[contracttype]
