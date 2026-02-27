@@ -401,6 +401,7 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
         payer.clone(),
         amount,
         fee_amount,
+        merchant_amount,
         invoice.token.clone(),
         env.ledger().timestamp(),
     );

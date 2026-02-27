@@ -49,11 +49,11 @@ fn setup_subscription_env() -> SubTestContext<'static> {
     // Merchant creates a monthly plan
     let description = String::from_str(&env, "Monthly Pro Plan");
     let amount = 1_000_i128;
-    let plan_id = client.create_plan(
+    let plan_id = client.create_subscription_plan(
         &merchant,
         &description,
-        &amount,
         &token_addr,
+        &amount,
         &MONTHLY_INTERVAL,
     );
 
@@ -87,7 +87,7 @@ fn test_subscription_lifecycle() {
     let ctx = setup_subscription_env();
 
     // Verify plan stored correctly
-    let plan = ctx.client.get_plan(&ctx.plan_id);
+    let plan = ctx.client.get_subscription_plan(&ctx.plan_id);
     assert_eq!(plan.amount, 1_000);
     assert_eq!(plan.interval, MONTHLY_INTERVAL);
     assert!(plan.active);
@@ -347,11 +347,11 @@ fn test_double_cancellation_fails() {
 fn test_create_plan_zero_amount_fails() {
     let ctx = setup_subscription_env();
     let description = String::from_str(&ctx.env, "Bad Plan");
-    ctx.client.create_plan(
+    ctx.client.create_subscription_plan(
         &ctx.merchant,
         &description,
-        &0,
         &ctx.token,
+        &0,
         &MONTHLY_INTERVAL,
     );
 }
@@ -361,8 +361,13 @@ fn test_create_plan_zero_amount_fails() {
 fn test_create_plan_zero_interval_fails() {
     let ctx = setup_subscription_env();
     let description = String::from_str(&ctx.env, "Bad Plan");
-    ctx.client
-        .create_plan(&ctx.merchant, &description, &1_000, &ctx.token, &0);
+    ctx.client.create_subscription_plan(
+        &ctx.merchant,
+        &description,
+        &ctx.token,
+        &1_000,
+        &0,
+    );
 }
 
 // ---------------------------------------------------------------------------

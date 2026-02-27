@@ -1,123 +1,199 @@
-use soroban_sdk::{contractevent, Address, Env};
+use crate::components::{admin, merchant};
+use crate::errors::ContractError;
+use crate::events;
+use crate::types::{DataKey, Subscription, SubscriptionPlan, SubscriptionStatus};
+use soroban_sdk::{panic_with_error, token, Address, Env, String};
 
-#[contractevent]
-pub struct AccountInitalizedEvent {
-    pub merchant: Address,
-    pub merchant_id: u64,
-    pub timestamp: u64,
+fn get_plan_count(env: &Env) -> u64 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::PlanCount)
+        .unwrap_or(0)
 }
 
-pub fn publish_account_initialized_event(
+fn get_subscription_count(env: &Env) -> u64 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::SubscriptionCount)
+        .unwrap_or(0)
+}
+
+fn get_merchant_id(env: &Env, merchant: &Address) -> u64 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound))
+}
+
+fn get_fee_for_amount(env: &Env, token: &Address, amount: i128) -> i128 {
+    let fee_bps: i128 = admin::get_fee(env, token);
+    if fee_bps == 0 {
+        return 0;
+    }
+    (amount * fee_bps) / 10_000i128
+}
+
+pub fn create_subscription_plan(
     env: &Env,
     merchant: Address,
-    merchant_id: u64,
-    timestamp: u64,
-) {
-    AccountInitalizedEvent {
-        merchant,
+    description: String,
+    token: Address,
+    amount: i128,
+    interval: u64,
+) -> u64 {
+    merchant.require_auth();
+    if amount <= 0 {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
+    if interval == 0 {
+        panic_with_error!(env, ContractError::InvalidInterval);
+    }
+    if !admin::is_accepted_token(env, &token) {
+        panic_with_error!(env, ContractError::TokenNotAccepted);
+    }
+
+    let merchant_id = get_merchant_id(env, &merchant);
+    let plan_id = get_plan_count(env) + 1;
+    env.storage()
+        .persistent()
+        .set(&DataKey::PlanCount, &plan_id);
+
+    let plan = SubscriptionPlan {
+        id: plan_id,
         merchant_id,
-        timestamp,
-    }
-    .publish(env);
-}
-
-#[contractevent]
-pub struct TokenAddedEvent {
-    pub token: Address,
-    pub timestamp: u64,
-}
-
-pub fn publish_token_added_event(env: &Env, token: Address, timestamp: u64) {
-    TokenAddedEvent { token, timestamp }.publish(env);
-}
-
-#[contractevent]
-pub struct AccountVerified {
-    pub timestamp: u64,
-}
-
-pub fn publish_account_verified_event(env: &Env, timestamp: u64) {
-    AccountVerified { timestamp }.publish(env);
-}
-
-#[contractevent]
-pub struct AccountRestricted {
-    pub status: bool,
-    pub timestamp: u64,
-}
-
-pub fn publish_account_restricted_event(env: &Env, status: bool, timestamp: u64) {
-    AccountRestricted { status, timestamp }.publish(env);
-}
-
-#[contractevent]
-pub struct WithdrawalToEvent {
-    pub token: Address,
-    pub recipient: Address,
-    pub amount: i128,
-    pub timestamp: u64,
-}
-
-pub fn publish_withdrawal_to_event(
-    env: &Env,
-    token: Address,
-    recipient: Address,
-    amount: i128,
-    timestamp: u64,
-) {
-    WithdrawalToEvent {
-        token,
-        recipient,
+        merchant: merchant.clone(),
+        description,
+        token: token.clone(),
         amount,
-        timestamp,
-    }
-    .publish(env);
-}
+        interval,
+        active: true,
+    };
+    env.storage()
+        .persistent()
+        .set(&DataKey::SubscriptionPlan(plan_id), &plan);
 
-#[contractevent]
-pub struct RefundProcessedEvent {
-    pub token: Address,
-    pub amount: i128,
-    pub recipient: Address,
-    pub timestamp: u64,
-}
-
-pub fn publish_refund_processed_event(
-    env: &Env,
-    token: Address,
-    amount: i128,
-    recipient: Address,
-    timestamp: u64,
-) {
-    RefundProcessedEvent {
+    events::publish_subscription_plan_created_event(
+        env,
+        plan_id,
+        merchant,
         token,
         amount,
-        recipient,
-        timestamp,
-    }
-    .publish(env);
+        interval,
+        env.ledger().timestamp(),
+    );
+    plan_id
 }
 
-#[contractevent]
-pub struct WithdrawalEvent {
-    pub token: Address,
-    pub amount: i128,
-    pub recipient: Address,
-    pub timestamp: u64,
+pub fn get_subscription_plan(env: &Env, plan_id: u64) -> SubscriptionPlan {
+    env.storage()
+        .persistent()
+        .get(&DataKey::SubscriptionPlan(plan_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::PlanNotFound))
 }
 
-pub fn publish_withdrawal_event(
-    env: &Env,
-    token: Address,
-    amount: i128,
-    recipient: Address,
-    timestamp: u64,
-) {
-    WithdrawalEvent {
-        token,
-        amount,
-        recipient,
-        timestamp,
+pub fn subscribe(env: &Env, customer: Address, plan_id: u64) -> u64 {
+    let plan = get_subscription_plan(env, plan_id);
+    if !plan.active {
+        panic_with_error!(env, ContractError::PlanNotActive);
     }
-    .publish(env);
+
+    let sub_id = get_subscription_count(env) + 1;
+    env.storage()
+        .persistent()
+        .set(&DataKey::SubscriptionCount, &sub_id);
+
+    let now = env.ledger().timestamp();
+    let sub = Subscription {
+        id: sub_id,
+        plan_id,
+        customer: customer.clone(),
+        merchant_id: plan.merchant_id,
+        status: SubscriptionStatus::Active,
+        date_created: now,
+        last_charged: 0,
+    };
+    env.storage()
+        .persistent()
+        .set(&DataKey::Subscription(sub_id), &sub);
+
+    events::publish_subscribed_event(env, sub_id, plan_id, customer, now);
+    sub_id
+}
+
+pub fn get_subscription(env: &Env, subscription_id: u64) -> Subscription {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Subscription(subscription_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::SubscriptionNotFound))
+}
+
+pub fn charge_subscription(env: &Env, subscription_id: u64) {
+    let mut sub = get_subscription(env, subscription_id);
+    if sub.status != SubscriptionStatus::Active {
+        panic_with_error!(env, ContractError::SubscriptionNotActive);
+    }
+
+    let plan = get_subscription_plan(env, sub.plan_id);
+    let now = env.ledger().timestamp();
+    if sub.last_charged > 0
+        && now < sub.last_charged.saturating_add(plan.interval)
+    {
+        panic_with_error!(env, ContractError::ChargeTooEarly);
+    }
+
+    let fee = get_fee_for_amount(env, &plan.token, plan.amount);
+    let merchant_amount = plan.amount - fee;
+
+    let token_client = token::TokenClient::new(env, &plan.token);
+    let merchant_account = merchant::get_merchant_account(env, plan.merchant_id);
+    let spender = env.current_contract_address();
+
+    token_client.transfer_from(&spender, &sub.customer, &merchant_account, &merchant_amount);
+    if fee > 0 {
+        token_client.transfer_from(&spender, &sub.customer, &spender, &fee);
+    }
+
+    sub.last_charged = now;
+    env.storage()
+        .persistent()
+        .set(&DataKey::Subscription(subscription_id), &sub);
+
+    events::publish_subscription_charged_event(
+        env,
+        subscription_id,
+        plan.id,
+        sub.customer.clone(),
+        plan.merchant.clone(),
+        plan.amount,
+        fee,
+        plan.token.clone(),
+        now,
+    );
+}
+
+pub fn cancel_subscription(env: &Env, caller: Address, subscription_id: u64) {
+    caller.require_auth();
+    let mut sub = get_subscription(env, subscription_id);
+    if sub.status != SubscriptionStatus::Active {
+        panic_with_error!(env, ContractError::SubscriptionNotActive);
+    }
+
+    let plan = get_subscription_plan(env, sub.plan_id);
+    let is_customer = sub.customer == caller;
+    let is_merchant = plan.merchant == caller;
+    if !is_customer && !is_merchant {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    sub.status = SubscriptionStatus::Cancelled;
+    env.storage()
+        .persistent()
+        .set(&DataKey::Subscription(subscription_id), &sub);
+
+    events::publish_subscription_cancelled_event(
+        env,
+        subscription_id,
+        caller,
+        env.ledger().timestamp(),
+    );
 }

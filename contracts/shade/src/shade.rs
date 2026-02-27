@@ -256,7 +256,7 @@ impl ShadeTrait for Shade {
         subscription_component::create_subscription_plan(
             &env,
             merchant,
-            &description,
+            description,
             token,
             amount,
             interval,

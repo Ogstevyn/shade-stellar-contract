@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use soroban_sdk::testutils::{Address as _, Events as _};
-use soroban_sdk::{Address, BytesN, Env, Map, Symbol, TryIntoVal, Val, Vec};
+use soroban_sdk::{Address, Env, Map, Symbol, TryIntoVal, Val};
 
 // const ACCOUNT_WASM: &[u8] =
 //     include_bytes!("../../../../target/wasm32-unknown-unknown/release/account.wasm");
