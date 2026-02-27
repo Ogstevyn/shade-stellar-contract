@@ -504,6 +504,7 @@ pub struct SubscriptionChargedEvent {
     pub timestamp: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_subscription_charged_event(
     env: &Env,
     subscription_id: u64,
