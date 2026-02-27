@@ -256,6 +256,7 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
     }
     invoices
 }
+//no new changes to add
 
 pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
     let mut invoice = get_invoice(env, invoice_id);
