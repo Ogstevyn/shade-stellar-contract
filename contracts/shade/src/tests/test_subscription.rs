@@ -361,13 +361,8 @@ fn test_create_plan_zero_amount_fails() {
 fn test_create_plan_zero_interval_fails() {
     let ctx = setup_subscription_env();
     let description = String::from_str(&ctx.env, "Bad Plan");
-    ctx.client.create_subscription_plan(
-        &ctx.merchant,
-        &description,
-        &ctx.token,
-        &1_000,
-        &0,
-    );
+    ctx.client
+        .create_subscription_plan(&ctx.merchant, &description, &ctx.token, &1_000, &0);
 }
 
 // ---------------------------------------------------------------------------

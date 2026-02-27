@@ -135,9 +135,7 @@ pub fn charge_subscription(env: &Env, subscription_id: u64) {
 
     let plan = get_subscription_plan(env, sub.plan_id);
     let now = env.ledger().timestamp();
-    if sub.last_charged > 0
-        && now < sub.last_charged.saturating_add(plan.interval)
-    {
+    if sub.last_charged > 0 && now < sub.last_charged.saturating_add(plan.interval) {
         panic_with_error!(env, ContractError::ChargeTooEarly);
     }
 
